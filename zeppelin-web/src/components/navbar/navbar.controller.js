@@ -23,9 +23,25 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
   vm.connected = websocketMsgSrv.isConnected();
   vm.websocketMsgSrv = websocketMsgSrv;
   vm.arrayOrderingSrv = arrayOrderingSrv;
-  
+  vm.readOnly = false;
+
   $('#notebook-list').perfectScrollbar({suppressScrollX: true});
-  
+
+  $scope.isReadOnly = function() {
+    return vm.readOnly;
+  }
+
+  /** apply view mode with system conf */
+  $scope.$on('setSystemConf', function(event, data) {
+    if (data != null && data.conf != null) {
+      vm.readOnly = data.conf.readonly == "true";
+    } else {
+      vm.readOnly = false;
+    }
+  });
+
+  $('#notebook-list').perfectScrollbar({suppressScrollX: true});
+
   $scope.$on('setNoteMenu', function(event, notes) {
     notebookListDataFactory.setNotes(notes);
   });
@@ -33,6 +49,10 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
   $scope.$on('setConnectedStatus', function(event, param) {
     vm.connected = param;
   });
+
+  function getSystemConf() {
+    websocketMsgSrv.getSystemConf();
+  }
 
   function loadNotes() {
     websocketMsgSrv.getNotebookList();
@@ -44,7 +64,9 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
 
   vm.loadNotes = loadNotes;
   vm.isActive = isActive;
+  vm.getSystemConf = getSystemConf;
 
+  vm.getSystemConf();
   vm.loadNotes();
 
 });

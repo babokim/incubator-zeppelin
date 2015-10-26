@@ -20,7 +20,7 @@ limitations under the License.
         <span class="icon-bar"></span>
       </button>
       <a class="navbar-brand" href="#/">
-        <img style="margin-top: -7px;s" src="assets/images/zepLogoW.png" width="50" alt="I'm zeppelin"> Zeppelin
+        <img style="margin-top: -7px;" src="assets/images/zepLogoW.png" width="50" alt="I'm zeppelin"> Zeppelin
       </a>
     </div>
 
@@ -29,8 +29,10 @@ limitations under the License.
         <li class="dropdown" dropdown>
           <a href="#" class="dropdown-toggle" dropdown-toggle>Notebook <span class="caret"></span></a>
           <ul class="dropdown-menu" role="menu">
-            <li><a href="" data-toggle="modal" data-target="#noteNameModal"><i class="fa fa-plus"></i> Create new note</a></li>
-            <li class="divider"></li>
+            <div ng-if="!isReadOnly()">
+              <li><a href="" data-toggle="modal" data-target="#noteNameModal"><i class="fa fa-plus"></i> Create new note</a></li>
+              <li class="divider"></li>
+            </div>
             <div id="notebook-list" class="scrollbar-container">
               <li ng-repeat="note in navbar.notes.list | orderBy:navbar.arrayOrderingSrv.notebookListOrdering track by $index"
                   ng-class="{'active' : navbar.isActive(note.id)}">
@@ -39,9 +41,11 @@ limitations under the License.
             </div>
           </ul>
         </li>
-        <li>
-          <a href="#/interpreter">Interpreter</a>
-        </li>
+        <div ng-if="!isReadOnly()">
+          <li>
+            <a href="#/interpreter">Interpreter</a>
+          </li>
+        </div>
       </ul>
       <ul class="nav navbar-nav navbar-right" style="margin-top:10px; margin-right:5px;">
         <li class="server-status">

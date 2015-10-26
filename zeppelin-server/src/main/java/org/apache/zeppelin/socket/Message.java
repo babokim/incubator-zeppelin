@@ -49,10 +49,10 @@ public class Message {
               // @param id paragraph id
               // @param progress percentage progress
 
-    NEW_NOTE, // [c-s] create new notebook
-    DEL_NOTE, // [c-s] delete notebook
+    NEW_NOTE(true), // [c-s] create new notebook
+    DEL_NOTE(true), // [c-s] delete notebook
               // @param id note id
-    CLONE_NOTE, // [c-s] clone new notebook
+    CLONE_NOTE(true), // [c-s] clone new notebook
                 // @param id id of note to clone
                 // @param name name fpor the cloned note
     NOTE_UPDATE,
@@ -63,7 +63,7 @@ public class Message {
                   // @param config paragraph config
                   // @param params paragraph params
 
-    COMMIT_PARAGRAPH, // [c-s] commit paragraph
+    COMMIT_PARAGRAPH(true), // [c-s] commit paragraph
                       // @param id paragraph id
                       // @param title paragraph title
                       // @param paragraph paragraph content.ie. script
@@ -73,11 +73,11 @@ public class Message {
     CANCEL_PARAGRAPH, // [c-s] cancel paragraph run
                       // @param id paragraph id
 
-    MOVE_PARAGRAPH, // [c-s] move paragraph order
+    MOVE_PARAGRAPH(true), // [c-s] move paragraph order
                     // @param id paragraph id
                     // @param index index the paragraph want to go
 
-    INSERT_PARAGRAPH, // [c-s] create new paragraph below current paragraph
+    INSERT_PARAGRAPH(true), // [c-s] create new paragraph below current paragraph
                       // @param target index
 
     COMPLETION, // [c-s] ask completion candidates
@@ -94,13 +94,29 @@ public class Message {
     NOTES_INFO, // [s-c] list of note infos
                 // @param notes serialized List<NoteInfo> object
 
-    PARAGRAPH_REMOVE,
+    PARAGRAPH_REMOVE(true),
     PING,
 
     ANGULAR_OBJECT_UPDATE,  // [s-c] add/update angular object
     ANGULAR_OBJECT_REMOVE,  // [s-c] add angular object del
 
-    ANGULAR_OBJECT_UPDATED  // [c-s] angular object value updated
+    ANGULAR_OBJECT_UPDATED, // [c-s] angular object value updated
+
+    GET_SYSTEM_CONF;  // [c-s] client gets system configuration
+
+    private final boolean modifyOp;
+
+    private OP() {
+      this(false);
+    }
+
+    private OP(boolean modifyOp) {
+      this.modifyOp = modifyOp;
+    }
+
+    public boolean isModifyOp() {
+      return modifyOp;
+    }
   }
 
   public OP op;

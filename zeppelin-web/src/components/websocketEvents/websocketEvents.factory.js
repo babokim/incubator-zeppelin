@@ -58,6 +58,8 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
       $rootScope.$broadcast('angularObjectUpdate', data);
     } else if (op === 'ANGULAR_OBJECT_REMOVE') {
       $rootScope.$broadcast('angularObjectRemove', data);
+    } else if (op === 'GET_SYSTEM_CONF') {
+      $rootScope.$broadcast('setSystemConf', data);
     }
   });
 

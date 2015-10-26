@@ -29,8 +29,12 @@ limitations under the License.
           <h4>Notebook</h4>
 
           <div>
-            <h5><a href="" data-toggle="modal" data-target="#noteNameModal" style="text-decoration: none;">
-              <i style="font-size: 15px;" class="icon-notebook"></i> Create new note</a></h5>
+            <div ng-if="!isReadOnly()">
+              <h5>
+                <a href="" data-toggle="modal" data-target="#noteNameModal" style="text-decoration: none;">
+                  <i style="font-size: 15px;" class="icon-notebook"></i> Create new noteaaa</a>
+              </h5>
+            </div>
             <ul style="list-style-type: none;">
               <li ng-repeat="note in home.notes.list | orderBy:home.arrayOrderingSrv.notebookListOrdering track by $index">
                 <i style="font-size: 10px;" class="icon-doc"></i>

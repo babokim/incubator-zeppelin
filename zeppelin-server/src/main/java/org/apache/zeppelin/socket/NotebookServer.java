@@ -61,6 +61,13 @@ public class NotebookServer extends WebSocketServlet implements
   Gson gson = new Gson();
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
   final List<NotebookSocket> connectedSockets = new LinkedList<>();
+  final boolean readOnlyMode;
+  final ZeppelinConfiguration conf;
+
+  public NotebookServer(ZeppelinConfiguration conf) {
+    this.readOnlyMode = conf.getBoolean(ConfVars.ZEPPELIN_READ_ONLY);
+    this.conf = conf;
+  }
 
   private Notebook notebook() {
     return ZeppelinServer.notebook;
@@ -99,6 +106,11 @@ public class NotebookServer extends WebSocketServlet implements
     try {
       Message messagereceived = deserializeMessage(msg);
       LOG.info("RECEIVE << " + messagereceived.op);
+      if (readOnlyMode && messagereceived.op.isModifyOp()) {
+        LOG.info("This server is readonly mode. but " + messagereceived.op +
+            " is modify op. This op will be ignored.");
+        return;
+      }
       /** Lets be elegant here */
       switch (messagereceived.op) {
           case LIST_NOTES:
@@ -148,6 +160,9 @@ public class NotebookServer extends WebSocketServlet implements
             break;
           case ANGULAR_OBJECT_UPDATED:
             angularObjectUpdated(conn, notebook, messagereceived);
+            break;
+          case GET_SYSTEM_CONF:
+            sendSystemConf(conn, notebook, messagereceived);
             break;
           default:
             broadcastNoteList();
@@ -544,6 +559,14 @@ public class NotebookServer extends WebSocketServlet implements
               .put("interpreterGroupId", interpreterGroupId)
               .put("noteId", note.id()));
     }
+  }
+
+  private void sendSystemConf(NotebookSocket conn, Notebook notebook,
+                        Message fromMessage) throws IOException {
+    Map<String, String> confProperty = new HashMap<String, String>();
+    confProperty.put("readonly", //ConfVars.ZEPPELIN_READ_ONLY.name(),
+        conf.getString(ConfVars.ZEPPELIN_READ_ONLY));
+    conn.send(serializeMessage(new Message(OP.GET_SYSTEM_CONF).put("conf", confProperty)));
   }
 
   private void moveParagraph(NotebookSocket conn, Notebook notebook,

@@ -17,6 +17,7 @@
 
 angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $route, $routeParams, $location, $rootScope, $http, websocketMsgSrv, baseUrlSrv, $timeout) {
   $scope.note = null;
+  $scope.conf = null;
   $scope.showEditor = false;
   $scope.editorToggled = false;
   $scope.tableToggled = false;
@@ -121,6 +122,12 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
     $scope.$broadcast('closeEditor');
   };
 
+  $scope.isReadOnly = function() {
+    var readonly = false;
+    readonly =  $scope.conf != null && $scope.conf.readonly == "true";
+    return readonly;
+  };
+
   $scope.toggleAllTable = function() {
     if ($scope.tableToggled) {
       $scope.$broadcast('openTable');
@@ -213,13 +220,28 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
   });
 
 
-  var initializeLookAndFeel = function() {
-    if (!$scope.note.config.looknfeel) {
-      $scope.note.config.looknfeel = 'default';
-    } else {
-      $scope.viewOnly = $scope.note.config.looknfeel === 'report' ? true : false;
+  /** apply view mode with system conf */
+  $scope.$on('setSystemConf', function(event, data) {
+    var prevReadOnlyValue = $scope.isReadOnly();
+    $scope.conf = data.conf;
+    if (prevReadOnlyValue != $scope.isReadOnly() && $scope.note != null) {
+      initializeLookAndFeel();
     }
-    $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
+  });
+
+  var initializeLookAndFeel = function() {
+    if ($scope.isReadOnly()) {
+      $scope.note.config.looknfeel = 'report';
+      $scope.viewOnly = true;
+      $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
+    } else {
+      if (!$scope.note.config.looknfeel) {
+        $scope.note.config.looknfeel = 'default';
+      } else {
+        $scope.viewOnly = $scope.note.config.looknfeel === 'report' ? true : false;
+      }
+      $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
+    }
   };
 
   var cleanParagraphExcept = function(paragraphId, note) {
