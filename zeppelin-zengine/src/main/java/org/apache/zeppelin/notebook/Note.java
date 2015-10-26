@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.interpreter.Interpreter;
@@ -79,6 +80,7 @@ public class Note implements Serializable, JobListener {
     this.repo = repo;
     this.replLoader = replLoader;
     this.jobListenerFactory = jobListenerFactory;
+
     generateId();
   }
 

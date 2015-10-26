@@ -139,8 +139,7 @@ public class ZeppelinServer extends Application {
     AbstractConnector connector;
     if (conf.useSsl()) {
       connector = new SslSelectChannelConnector(getSslContextFactory(conf));
-    }
-    else {
+    } else {
       connector = new SelectChannelConnector();
     }
 
@@ -160,7 +159,7 @@ public class ZeppelinServer extends Application {
   private static ServletContextHandler setupNotebookServer(ZeppelinConfiguration conf)
       throws Exception {
 
-    notebookServer = new NotebookServer();
+    notebookServer = new NotebookServer(conf);
     final ServletHolder servletHolder = new ServletHolder(notebookServer);
     servletHolder.setInitParameter("maxTextMessageSize", "1024000");
 

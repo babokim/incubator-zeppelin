@@ -21,6 +21,8 @@ package org.apache.zeppelin.socket;
 
 import static org.junit.Assert.*;
 import java.io.IOException;
+
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.junit.Test;
 
 import java.net.UnknownHostException;
@@ -33,7 +35,7 @@ public class NotebookServerTest {
 
   @Test
   public void checkOrigin() throws UnknownHostException {
-    NotebookServer server = new NotebookServer();
+    NotebookServer server = new NotebookServer(ZeppelinConfiguration.create());
     String origin = "http://" + InetAddress.getLocalHost().getHostName() + ":8080";
 
     assertTrue("Origin " + origin + " is not allowed. Please check your hostname.",
@@ -42,7 +44,7 @@ public class NotebookServerTest {
 
   @Test
   public void checkInvalidOrigin(){
-    NotebookServer server = new NotebookServer();
+    NotebookServer server = new NotebookServer(ZeppelinConfiguration.create());
     assertFalse(server.checkOrigin(new TestHttpServletRequest(), "http://evillocalhost:8080"));
   }
 }
