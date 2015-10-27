@@ -60,6 +60,7 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
       $rootScope.$broadcast('angularObjectRemove', data);
     } else if (op === 'GET_SYSTEM_CONF') {
       $rootScope.$broadcast('setSystemConf', data);
+      websocketCalls.sendNewEvent({op: 'LIST_NOTES'});
     }
   });
 

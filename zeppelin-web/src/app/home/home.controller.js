@@ -32,12 +32,12 @@ angular.module('zeppelinWebApp').controller('HomeCtrl', function($scope, noteboo
 
   $scope.isReadOnly = function() {
     return vm.readOnly;
-  }
+  };
 
   /** apply view mode with system conf */
   $scope.$on('setSystemConf', function(event, data) {
-    if (data != null && data.conf != null) {
-      vm.readOnly = data.conf.readonly == "true";
+    if (data !== null && data.conf !== null) {
+      vm.readOnly = data.conf.readonly === 'true';
     } else {
       vm.readOnly = false;
     }

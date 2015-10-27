@@ -124,7 +124,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
 
   $scope.isReadOnly = function() {
     var readonly = false;
-    readonly =  $scope.conf != null && $scope.conf.readonly == "true";
+    readonly =  $scope.conf !== null && $scope.conf.readonly === 'true';
     return readonly;
   };
 
@@ -222,26 +222,16 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
 
   /** apply view mode with system conf */
   $scope.$on('setSystemConf', function(event, data) {
-    var prevReadOnlyValue = $scope.isReadOnly();
     $scope.conf = data.conf;
-    if (prevReadOnlyValue != $scope.isReadOnly() && $scope.note != null) {
-      initializeLookAndFeel();
-    }
   });
 
   var initializeLookAndFeel = function() {
-    if ($scope.isReadOnly()) {
-      $scope.note.config.looknfeel = 'report';
-      $scope.viewOnly = true;
-      $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
+    if (!$scope.note.config.looknfeel) {
+      $scope.note.config.looknfeel = 'default';
     } else {
-      if (!$scope.note.config.looknfeel) {
-        $scope.note.config.looknfeel = 'default';
-      } else {
-        $scope.viewOnly = $scope.note.config.looknfeel === 'report' ? true : false;
-      }
-      $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
+      $scope.viewOnly = $scope.note.config.looknfeel === 'report' ? true : false;
     }
+    $rootScope.$broadcast('setLookAndFeel', $scope.note.config.looknfeel);
   };
 
   var cleanParagraphExcept = function(paragraphId, note) {

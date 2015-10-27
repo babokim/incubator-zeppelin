@@ -29,12 +29,12 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
 
   $scope.isReadOnly = function() {
     return vm.readOnly;
-  }
+  };
 
   /** apply view mode with system conf */
   $scope.$on('setSystemConf', function(event, data) {
-    if (data != null && data.conf != null) {
-      vm.readOnly = data.conf.readonly == "true";
+    if (data !== null && data.conf !== null) {
+      vm.readOnly = data.conf.readonly === 'true';
     } else {
       vm.readOnly = false;
     }
@@ -54,19 +54,13 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
     websocketMsgSrv.getSystemConf();
   }
 
-  function loadNotes() {
-    websocketMsgSrv.getNotebookList();
-  }
-
   function isActive(noteId) {
     return ($routeParams.noteId === noteId);
   }
 
-  vm.loadNotes = loadNotes;
   vm.isActive = isActive;
   vm.getSystemConf = getSystemConf;
 
   vm.getSystemConf();
-  vm.loadNotes();
 
 });

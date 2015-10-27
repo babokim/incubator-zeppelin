@@ -63,7 +63,7 @@ public class Message {
                   // @param config paragraph config
                   // @param params paragraph params
 
-    COMMIT_PARAGRAPH(true), // [c-s] commit paragraph
+    COMMIT_PARAGRAPH, // [c-s] commit paragraph
                       // @param id paragraph id
                       // @param title paragraph title
                       // @param paragraph paragraph content.ie. script

@@ -24,7 +24,7 @@ limitations under the License.
            ng-show="showTitleEditor"
            ng-escape="showTitleEditor = false"
            ng-enter="setTitle(); showTitleEditor = false"/>
-    <div ng-click="showTitleEditor = !asIframe && !viewOnly"
+    <div ng-click="showTitleEditor = !asIframe && !viewOnly && !isReadOnly()"
          ng-show="!showTitleEditor"
          ng-bind-html="paragraph.title || 'Untitled'">
     </div>
@@ -41,7 +41,7 @@ limitations under the License.
                      require : ['ace/ext/language_tools']
                    }"
            ng-model="paragraph.text"
-           ng-class="{'disable': paragraph.status == 'RUNNING' || paragraph.status == 'PENDING', 'paragraph-text--dirty' : dirtyText}">
+           ng-class="{'disable': isReadOnly() || paragraph.status == 'RUNNING' || paragraph.status == 'PENDING', 'paragraph-text--dirty' : dirtyText}">
       </div>
     </div>
 
@@ -421,61 +421,63 @@ limitations under the License.
     <span  style="cursor:pointer;"
            ng-click="saveParagraph()"
            ng-show="dirtyText"></span>
-    <span class="dropdown navbar-right">
-      <span class="icon-settings" style="cursor:pointer"
-            data-toggle="dropdown"
-            type="button">
-      </span>
-      <ul class="dropdown-menu" role="menu" style="width:200px;">
-        <li>
-          <a class="fa fa-arrows-h dropdown"> Width
-            <form style="display:inline; margin-left:5px;">
-              <select ng-model="paragraph.config.colWidth"
-                      class="selectpicker"
-                      ng-change="changeColWidth()"
-                      ng-options="col for col in colWidthOption"></select>
-            </form>
-          </a>
-        </li>
-        <li>
-          <a class="icon-arrow-up" style="cursor:pointer"
-             ng-click="moveUp()"> Move Up</a>
-        </li>
-        <li>
-          <a class="icon-arrow-down" style="cursor:pointer"
-             ng-click="moveDown()"> Move Down</a>
-        </li>
-        <li>
-          <a class="icon-plus" style="cursor:pointer"
-             ng-click="insertNew()"> Insert New</a>
-        </li>
-        <li>
-          <!-- paragraph handler -->
-          <a class="fa fa-font" style="cursor:pointer"
-             ng-click="hideTitle()"
-             ng-show="paragraph.config.title"> Hide title</a>
-          <a class="fa fa-font" style="cursor:pointer"
-             ng-click="showTitle()"
-             ng-show="!paragraph.config.title"> Show title</a>
-        </li>
-        <li>
-          <a class="fa fa-list-ol" style="cursor:pointer"
-             ng-click="hideLineNumbers()"
-             ng-show="paragraph.config.lineNumbers"> Hide line numbers</a>
-          <a class="fa fa-list-ol" style="cursor:pointer"
-             ng-click="showLineNumbers()"
-             ng-show="!paragraph.config.lineNumbers"> Show line numbers</a>
-        </li>
+    <span ng-if="!isReadOnly()">
+      <span class="dropdown navbar-right">
+        <span class="icon-settings" style="cursor:pointer"
+              data-toggle="dropdown"
+              type="button">
+        </span>
+        <ul class="dropdown-menu" role="menu" style="width:200px;">
+          <li>
+            <a class="fa fa-arrows-h dropdown"> Width
+              <form style="display:inline; margin-left:5px;">
+                <select ng-model="paragraph.config.colWidth"
+                        class="selectpicker"
+                        ng-change="changeColWidth()"
+                        ng-options="col for col in colWidthOption"></select>
+              </form>
+            </a>
+          </li>
+          <li>
+            <a class="icon-arrow-up" style="cursor:pointer"
+               ng-click="moveUp()"> Move Up</a>
+          </li>
+          <li>
+            <a class="icon-arrow-down" style="cursor:pointer"
+               ng-click="moveDown()"> Move Down</a>
+          </li>
+          <li>
+            <a class="icon-plus" style="cursor:pointer"
+               ng-click="insertNew()"> Insert New</a>
+          </li>
+          <li>
+            <!-- paragraph handler -->
+            <a class="fa fa-font" style="cursor:pointer"
+               ng-click="hideTitle()"
+               ng-show="paragraph.config.title"> Hide title</a>
+            <a class="fa fa-font" style="cursor:pointer"
+               ng-click="showTitle()"
+               ng-show="!paragraph.config.title"> Show title</a>
+          </li>
+          <li>
+            <a class="fa fa-list-ol" style="cursor:pointer"
+               ng-click="hideLineNumbers()"
+               ng-show="paragraph.config.lineNumbers"> Hide line numbers</a>
+            <a class="fa fa-list-ol" style="cursor:pointer"
+               ng-click="showLineNumbers()"
+               ng-show="!paragraph.config.lineNumbers"> Show line numbers</a>
+          </li>
 
-        <li><a class="icon-share-alt" style="cursor:pointer"
-               ng-click="goToSingleParagraph()"> Link this paragraph</a>
-        </li>
-        <li>
-          <!-- remove paragraph -->
-          <a class="fa fa-times" style="cursor:pointer"
-             ng-click="removeParagraph()"> Remove</a>
-        </li>
-      </ul>
+          <li><a class="icon-share-alt" style="cursor:pointer"
+                 ng-click="goToSingleParagraph()"> Link this paragraph</a>
+          </li>
+          <li>
+            <!-- remove paragraph -->
+            <a class="fa fa-times" style="cursor:pointer"
+               ng-click="removeParagraph()"> Remove</a>
+          </li>
+        </ul>
+      </span>
     </span>
   </div>
 </div>
