@@ -13,14 +13,16 @@
  */
 'use strict';
 
-angular.module('zeppelinWebApp').controller('MainCtrl', function($scope, $rootScope, $window) {
+angular.module('zeppelinWebApp').controller('MainCtrl', function($scope, $rootScope, websocketMsgSrv, $window) {
   $rootScope.compiledScope = $scope.$new(true, $rootScope);
   $scope.looknfeel = 'default';
+  $rootScope.readOnly = false;
 
   var init = function() {
     $scope.asIframe = (($window.location.href.indexOf('asIframe') > -1) ? true : false);
+    websocketMsgSrv.getSystemConf();
   };
-  
+
   init();
 
   $rootScope.$on('setIframe', function(event, data) {
@@ -36,7 +38,7 @@ angular.module('zeppelinWebApp').controller('MainCtrl', function($scope, $rootSc
       event.preventDefault();
     }
   });
-  
+
   // Set The lookAndFeel to default on every page
   $rootScope.$on('$routeChangeStart', function(event, next, current) {
     $rootScope.$broadcast('setLookAndFeel', 'default');

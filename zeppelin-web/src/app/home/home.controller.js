@@ -22,7 +22,6 @@ angular.module('zeppelinWebApp').controller('HomeCtrl', function($scope, noteboo
 
   vm.notebookHome = false;
   vm.staticHome = false;
-  vm.readOnly = false;
 
   var initHome = function() {
     websocketMsgSrv.getHomeNotebook();
@@ -31,17 +30,8 @@ angular.module('zeppelinWebApp').controller('HomeCtrl', function($scope, noteboo
   initHome();
 
   $scope.isReadOnly = function() {
-    return vm.readOnly;
+    return $rootScope.readOnly;
   };
-
-  /** apply view mode with system conf */
-  $scope.$on('setSystemConf', function(event, data) {
-    if (data !== null && data.conf !== null) {
-      vm.readOnly = data.conf.readonly === 'true';
-    } else {
-      vm.readOnly = false;
-    }
-  });
 
   $scope.$on('setNoteContent', function(event, note) {
     if (note) {

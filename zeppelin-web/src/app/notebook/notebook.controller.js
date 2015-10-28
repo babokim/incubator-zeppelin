@@ -17,7 +17,6 @@
 
 angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $route, $routeParams, $location, $rootScope, $http, websocketMsgSrv, baseUrlSrv, $timeout) {
   $scope.note = null;
-  $scope.conf = null;
   $scope.showEditor = false;
   $scope.editorToggled = false;
   $scope.tableToggled = false;
@@ -123,9 +122,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
   };
 
   $scope.isReadOnly = function() {
-    var readonly = false;
-    readonly =  $scope.conf !== null && $scope.conf.readonly === 'true';
-    return readonly;
+    return $rootScope.readOnly;
   };
 
   $scope.toggleAllTable = function() {
@@ -217,12 +214,6 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
     initializeLookAndFeel();
     //open interpreter binding setting when there're none selected
     getInterpreterBindings(getInterpreterBindingsCallBack);
-  });
-
-
-  /** apply view mode with system conf */
-  $scope.$on('setSystemConf', function(event, data) {
-    $scope.conf = data.conf;
   });
 
   var initializeLookAndFeel = function() {

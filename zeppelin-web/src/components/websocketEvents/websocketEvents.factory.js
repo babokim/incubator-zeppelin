@@ -59,8 +59,11 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
     } else if (op === 'ANGULAR_OBJECT_REMOVE') {
       $rootScope.$broadcast('angularObjectRemove', data);
     } else if (op === 'GET_SYSTEM_CONF') {
-      $rootScope.$broadcast('setSystemConf', data);
-      websocketCalls.sendNewEvent({op: 'LIST_NOTES'});
+      if (data !== null && data.conf !== null) {
+        $rootScope.readOnly = data.conf.readonly === 'true';
+      } else {
+        $rootScope.readOnly = false;
+      }
     }
   });
 
