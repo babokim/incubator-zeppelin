@@ -18,6 +18,7 @@
 package org.apache.zeppelin.rest;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -75,7 +76,14 @@ public class InterpreterRestApi {
   public Response listSettings() {
     List<InterpreterSetting> interpreterSettings;
     interpreterSettings = interpreterFactory.get();
-    return new JsonResponse<>(Status.OK, "", interpreterSettings).build();
+
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (roles != null && (roles.contains("dev") || roles.contains("admin"))) {
+      return new JsonResponse(Status.OK, "", interpreterSettings).build();
+    } else {
+      return new JsonResponse(Status.FORBIDDEN,
+          SecurityUtils.getPrincipal() + " can't access.", "").build();
+    }
   }
 
   /**

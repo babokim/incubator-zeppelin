@@ -54,12 +54,18 @@ angular.module('zeppelinWebApp').factory('websocketEvents',
     console.log('Receive << %o, %o', payload.op, payload);
     var op = payload.op;
     var data = payload.data;
+    if (data.error != null) {
+      alert(data.error);
+      return;
+    }
     if (op === 'NOTE') {
       $rootScope.$broadcast('setNoteContent', data.note);
     } else if (op === 'NEW_NOTE') {
       $location.path('/notebook/' + data.note.id);
     } else if (op === 'NOTES_INFO') {
       $rootScope.$broadcast('setNoteMenu', data.notes);
+    } else if (op === 'DEL_NOTE') {
+      $location.path('/#');
     } else if (op === 'LIST_NOTEBOOK_JOBS') {
       $rootScope.$broadcast('setNotebookJobs', data.notebookJobs);
     } else if (op === 'LIST_UPDATE_NOTEBOOK_JOBS') {

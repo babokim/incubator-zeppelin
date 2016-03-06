@@ -17,12 +17,15 @@
 
 package org.apache.zeppelin.rest;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
 import java.util.Set;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -33,12 +36,16 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.StreamingOutput;
 
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
 import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +67,11 @@ import org.apache.zeppelin.socket.NotebookServer;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.utils.SecurityUtils;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.GsonBuilder;
+import com.google.gson.stream.JsonReader;
+
 /**
  * Rest api endpoint for the noteBook.
  */
@@ -72,6 +84,7 @@ public class NotebookRestApi {
   private NotebookServer notebookServer;
   private SearchService notebookIndex;
   private NotebookAuthorization notebookAuthorization;
+  private ZeppelinConfiguration conf;
 
   public NotebookRestApi() {
   }
@@ -81,6 +94,8 @@ public class NotebookRestApi {
     this.notebookServer = notebookServer;
     this.notebookIndex = search;
     this.notebookAuthorization = notebook.getNotebookAuthorization();
+    this.conf = ZeppelinConfiguration.create();
+
   }
 
   /**
@@ -478,6 +493,50 @@ public class NotebookRestApi {
     notebookServer.broadcastNote(note);
 
     return new JsonResponse(Status.OK, "").build();
+  }
+
+  /**
+   * Download paragraph
+   * @param
+   * @return data stream
+   * @throws IOException
+   */
+  @GET
+  @Produces("text/csv")
+  @Path("{notebookId}/paragraph/{paragraphId}/download")
+  @ZeppelinApi
+  public Response downParagraph(@PathParam("notebookId") String notebookId,
+                                  @PathParam("paragraphId") String paragraphId)
+      throws IOException {
+    LOG.info("Download paragraph, node.id: {}, paragrap.id: {}", notebookId, paragraphId);
+
+    Note note = notebook.getNote(notebookId);
+    if (note == null) {
+      return new JsonResponse(Status.NOT_FOUND, "note not found.").build();
+    }
+
+    Paragraph p = note.getParagraph(paragraphId);
+    if (p == null) {
+      return new JsonResponse(Status.NOT_FOUND, "paragraph not found.").build();
+    }
+
+    String resultFileParent = conf.getString(ConfVars.ZEPPELIN_RESULT_DATA_DIR);
+
+    String fileName = notebookId + "_" + paragraphId;
+    final File file = new File(resultFileParent + "/" + fileName);
+
+    ResponseBuilder response = null;
+    if (file.exists()) {
+      LOG.info("Download data from " + file);
+      response = Response.ok((Object) file);
+    } else {
+      LOG.info("Download data from paragraph result " +
+          "because result file is not exists: " + file);
+      response = Response.ok(p.getResultMessage());
+    }
+    response.header("Content-Disposition", "attachment; filename=\"" + fileName + ".csv\"");
+    response.type(MediaType.TEXT_PLAIN + "; charset=UTF-8");
+    return response.build();
   }
 
   /**

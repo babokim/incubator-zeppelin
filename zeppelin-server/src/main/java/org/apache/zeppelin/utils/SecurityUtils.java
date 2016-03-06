@@ -24,6 +24,8 @@ import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.config.IniSecurityManagerFactory;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -35,6 +37,7 @@ import java.util.*;
  * Tools for securing Zeppelin
  */
 public class SecurityUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
 
   public static void initSecurityManager(String shiroPath) {
     IniSecurityManagerFactory factory = new IniSecurityManagerFactory("file:" + shiroPath);

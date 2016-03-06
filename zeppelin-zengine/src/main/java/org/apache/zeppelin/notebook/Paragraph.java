@@ -18,6 +18,7 @@
 package org.apache.zeppelin.notebook;
 
 import org.apache.zeppelin.display.AngularObject;
+import com.google.gson.internal.StringMap;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.helium.HeliumPackage;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.io.StringReader;
 import java.util.*;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -257,6 +259,42 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   public InterpreterResult getResult() {
     return (InterpreterResult) getReturn();
+  }
+
+  public String getResultMessage() {
+    if (result != null) {
+      if (result instanceof InterpreterResult) {
+        return resultToCsv(((InterpreterResult) result).message());
+      } else if (result instanceof StringMap) {
+        StringMap resultMap = (StringMap) result;
+        if (resultMap.get("msg") != null) {
+          return resultToCsv(resultMap.get("msg").toString());
+        } else {
+          return "No data";
+        }
+      } else {
+        return result.toString();
+      }
+    } else {
+      return "No data";
+    }
+  }
+
+  private String resultToCsv(String resultMessage) {
+    StringBuilder sb = new StringBuilder();
+    String[] lines = resultMessage.split("\n");
+
+    for (String eachLine: lines) {
+      String[] tokens = eachLine.split("\t");
+      String prefix = "";
+      for (String eachToken: tokens) {
+        sb.append(prefix).append("\"").append(eachToken.replace("\"", "'")).append("\"");
+        prefix = ",";
+      }
+      sb.append("\n");
+    }
+
+    return sb.toString();
   }
 
   @Override

@@ -129,7 +129,7 @@ public class NotebookServer extends WebSocketServlet implements
       if (LOG.isTraceEnabled()) {
         LOG.trace("RECEIVE MSG = " + messagereceived);
       }
-      
+
       String ticket = TicketContainer.instance.getTicket(messagereceived.principal);
       if (ticket != null && !ticket.equals(messagereceived.ticket))
         throw new Exception("Invalid ticket " + messagereceived.ticket + " != " + ticket);
@@ -143,14 +143,20 @@ public class NotebookServer extends WebSocketServlet implements
 
       HashSet<String> userAndRoles = new HashSet<String>();
       userAndRoles.add(messagereceived.principal);
+      HashSet<String> roles = null;
       if (!messagereceived.roles.equals("")) {
-        HashSet<String> roles = gson.fromJson(messagereceived.roles,
+        roles = gson.fromJson(messagereceived.roles,
                 new TypeToken<HashSet<String>>(){}.getType());
         if (roles != null) {
           userAndRoles.addAll(roles);
         }
       }
       AuthenticationInfo subject = new AuthenticationInfo(messagereceived.principal);
+
+      if (!checkPermission(conn, messagereceived.op,
+          messagereceived.principal, roles)) {
+        return;
+      }
 
       /** Lets be elegant here */
       switch (messagereceived.op) {
@@ -240,6 +246,17 @@ public class NotebookServer extends WebSocketServlet implements
     } catch (Exception e) {
       LOG.error("Can't handle message", e);
     }
+  }
+
+  private boolean checkPermission(NotebookSocket conn, Message.OP op, String current,
+                                  HashSet<String> roles) throws IOException {
+    if (!op.isPermitted(roles)) {
+      conn.send(serializeMessage(
+          (new Message(op))
+              .put("error", "[" + current + "] is not allowed to " + op)));
+      return false;
+    }
+    return true;
   }
 
   @Override

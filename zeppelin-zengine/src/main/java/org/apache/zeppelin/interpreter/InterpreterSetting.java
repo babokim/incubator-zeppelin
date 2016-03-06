@@ -242,4 +242,8 @@ public class InterpreterSetting {
   public void setErrorReason(String errorReason) {
     this.errorReason = errorReason;
   }
+
+  public void setProperties(Properties properties) {
+    this.properties = properties;
+  }
 }
