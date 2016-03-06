@@ -112,12 +112,18 @@ public class NotebookServer extends WebSocketServlet implements
 
       HashSet<String> userAndRoles = new HashSet<String>();
       userAndRoles.add(messagereceived.principal);
+      HashSet<String> roles = null;
       if (!messagereceived.roles.equals("")) {
-        HashSet<String> roles = gson.fromJson(messagereceived.roles,
+        roles = gson.fromJson(messagereceived.roles,
                 new TypeToken<HashSet<String>>(){}.getType());
         if (roles != null) {
           userAndRoles.addAll(roles);
         }
+      }
+
+      if (!checkPermission(conn, messagereceived.op,
+          messagereceived.principal, roles)) {
+        return;
       }
 
       /** Lets be elegant here */
@@ -189,8 +195,22 @@ public class NotebookServer extends WebSocketServlet implements
             break;
       }
     } catch (Exception e) {
-      LOG.error("Can't handle message", e);
+      if (e.getMessage() != null && e.getMessage().startsWith("Invalid ticket")) {
+      } else {
+        LOG.error("Can't handle message: " + e.getMessage(), e);
+      }
     }
+  }
+
+  private boolean checkPermission(NotebookSocket conn, Message.OP op, String current,
+                                  HashSet<String> roles) throws IOException {
+    if (!op.isPermitted(roles)) {
+      conn.send(serializeMessage(
+          (new Message(op))
+              .put("error", "[" + current + "] is not allowed to " + op)));
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -860,7 +880,7 @@ public class NotebookServer extends WebSocketServlet implements
     Message msg = new Message(OP.PARAGRAPH_APPEND_OUTPUT)
             .put("noteId", noteId)
             .put("paragraphId", paragraphId)
-            .put("data", output);
+        .put("data", output);
     Paragraph paragraph = notebook().getNote(noteId).getParagraph(paragraphId);
     broadcast(noteId, msg);
   }
@@ -977,8 +997,8 @@ public class NotebookServer extends WebSocketServlet implements
       for (AngularObject object : objects) {
         conn.send(serializeMessage(new Message(OP.ANGULAR_OBJECT_UPDATE)
             .put("angularObject", object)
-            .put("interpreterGroupId",
-                intpSetting.getInterpreterGroup().getId())
+                .put("interpreterGroupId",
+                    intpSetting.getInterpreterGroup().getId())
             .put("noteId", note.id())
             .put("paragraphId", object.getParagraphId())
         ));
@@ -1037,7 +1057,7 @@ public class NotebookServer extends WebSocketServlet implements
           broadcast(
               note.id(),
               new Message(OP.ANGULAR_OBJECT_REMOVE).put("name", name).put(
-                      "noteId", noteId).put("paragraphId", paragraphId));
+                  "noteId", noteId).put("paragraphId", paragraphId));
         }
       }
     }

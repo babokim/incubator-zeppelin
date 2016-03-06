@@ -72,7 +72,7 @@ public abstract class Job {
 
   private String jobName;
   String id;
-  Object result;
+  protected Object result;
   Date dateCreated;
   Date dateStarted;
   Date dateFinished;

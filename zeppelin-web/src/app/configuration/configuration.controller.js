@@ -24,7 +24,8 @@ angular.module('zeppelinWebApp').controller('ConfigurationCtrl', function($scope
       $scope.configurations = data.body;
     }).
     error(function(data, status, headers, config) {
-      console.log('Error %o %o', status, data.message);
+        alert('Error ' + status + ' ' + data.message);
+        console.log('Error %o %o', status, data.message);
     });
   };
 

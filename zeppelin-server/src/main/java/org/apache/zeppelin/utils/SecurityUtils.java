@@ -18,6 +18,8 @@ package org.apache.zeppelin.utils;
 
 import org.apache.shiro.subject.Subject;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -30,6 +32,8 @@ import java.util.HashSet;
  * Tools for securing Zeppelin
  */
 public class SecurityUtils {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
 
   public static Boolean isValidOrigin(String sourceHost, ZeppelinConfiguration conf)
       throws UnknownHostException, URISyntaxException {
@@ -73,11 +77,12 @@ public class SecurityUtils {
   public static HashSet<String> getRoles() {
     Subject subject = org.apache.shiro.SecurityUtils.getSubject();
     HashSet<String> roles = new HashSet<>();
-
+    String roleStr = "";
     if (subject.isAuthenticated()) {
-      for (String role : Arrays.asList("role1", "role2", "role3")) {
+      for (String role : Arrays.asList("admin", "dev", "emp")) {
         if (subject.hasRole(role)) {
           roles.add(role);
+          roleStr += role + ",";
         }
       }
     }

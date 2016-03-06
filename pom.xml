@@ -104,6 +104,7 @@
     <module>lens</module>
     <module>cassandra</module>
     <module>elasticsearch</module>
+    <module>presto</module>
     <module>alluxio</module>
     <module>zeppelin-web</module>
     <module>zeppelin-server</module>

@@ -16,7 +16,7 @@
 
 angular.module('zeppelinWebApp')
   .controller('ParagraphCtrl', function($scope,$rootScope, $route, $window, $element, $routeParams, $location,
-                                         $timeout, $compile, websocketMsgSrv) {
+                                         $timeout, $compile, websocketMsgSrv, SaveAsService) {
   var ANGULAR_FUNCTION_OBJECT_NAME_PREFIX = '_Z_ANGULAR_FUNC_';
   $scope.paragraph = null;
   $scope.originalText = '';
@@ -433,6 +433,15 @@ angular.module('zeppelinWebApp')
     commitParagraph($scope.paragraph.title, $scope.dirtyText, $scope.paragraph.config, $scope.paragraph.settings.params);
     $scope.originalText = angular.copy($scope.dirtyText);
     $scope.dirtyText = undefined;
+  };
+
+  $scope.downloadParagraph = function() {
+    if ($scope.isRunning()) {
+      alert('Paragraph is running.');
+      return;
+    }
+    console.log('Download node: %o paragraph: %o', $scope.note.id, $scope.paragraph.id);
+    SaveAsService.downloadParagraph($scope.note.id, $scope.paragraph.id);
   };
 
   $scope.toggleEnableDisable = function () {

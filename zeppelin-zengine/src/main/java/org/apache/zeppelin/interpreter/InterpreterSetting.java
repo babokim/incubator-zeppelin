@@ -155,4 +155,8 @@ public class InterpreterSetting {
   public List<InterpreterInfo> getInterpreterInfos() {
     return interpreterGroup;
   }
+
+  public void setProperties(Properties properties) {
+    this.properties = properties;
+  }
 }

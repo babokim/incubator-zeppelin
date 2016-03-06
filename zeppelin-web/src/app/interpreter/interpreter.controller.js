@@ -29,6 +29,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
         $scope.interpreterSettings = data.body;
       }).
       error(function(data, status, headers, config) {
+        alert('Error ' + status + ' ' + data.message);
         console.log('Error %o %o', status, data.message);
       });
   };
@@ -39,6 +40,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
         $scope.availableInterpreters = data.body;
       }).
       error(function(data, status, headers, config) {
+        alert('Error ' + status + ' ' + data.message);
         console.log('Error %o %o', status, data.message);
       });
   };
@@ -75,7 +77,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
       // add missing field of option
       if (!setting.option) {
         setting.option = {};
-      }      
+      }
       if (setting.option.remote === undefined) {
         // remote always true for now
         setting.option.remote = true;
@@ -93,6 +95,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
           removeTMPSettings(index);
         }).
         error(function (data, status, headers, config) {
+          alert('Error ' + status + ' ' + data.message);
           console.log('Error %o %o', status, data.message);
           ngToast.danger(data.message);
           form.$show();
@@ -122,6 +125,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
               $scope.interpreterSettings.splice(index, 1);
             }).
             error(function(data, status, headers, config) {
+              alert('Error ' + status + ' ' + data.message);
               console.log('Error %o %o', status, data.message);
             });
         }
@@ -159,6 +163,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
               $scope.interpreterSettings[index] = data.body;
             }).
             error(function(data, status, headers, config) {
+              alert('Error ' + status + ' ' + data.message);
               console.log('Error %o %o', status, data.message);
             });
         }
@@ -209,6 +214,7 @@ angular.module('zeppelinWebApp').controller('InterpreterCtrl', function($scope, 
         $scope.showAddNewSetting = false;
       }).
       error(function(data, status, headers, config) {
+        alert('Error ' + status + ' ' + data.message);
         console.log('Error %o %o', status, data.message);
         ngToast.danger(data.message);
       });

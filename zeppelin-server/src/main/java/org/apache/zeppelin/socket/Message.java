@@ -18,6 +18,7 @@
 package org.apache.zeppelin.socket;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -43,15 +44,15 @@ public class Message {
               // @param id paragraph id
               // @param progress percentage progress
 
-    NEW_NOTE, // [c-s] create new notebook
-    DEL_NOTE, // [c-s] delete notebook
+    NEW_NOTE(true), // [c-s] create new notebook
+    DEL_NOTE(true), // [c-s] delete notebook
               // @param id note id
-    CLONE_NOTE, // [c-s] clone new notebook
+    CLONE_NOTE(true), // [c-s] clone new notebook
                 // @param id id of note to clone
                 // @param name name fpor the cloned note
-    IMPORT_NOTE,  // [c-s] import notebook
+    IMPORT_NOTE(true),  // [c-s] import notebook
                   // @param object notebook
-    NOTE_UPDATE,
+    NOTE_UPDATE(true),
 
     RUN_PARAGRAPH, // [c-s] run paragraph
                    // @param id paragraph id
@@ -69,11 +70,12 @@ public class Message {
     CANCEL_PARAGRAPH, // [c-s] cancel paragraph run
                       // @param id paragraph id
 
-    MOVE_PARAGRAPH, // [c-s] move paragraph order
+    MOVE_PARAGRAPH(true), // [c-s] move paragraph order
                     // @param id paragraph id
                     // @param index index the paragraph want to go
 
-    INSERT_PARAGRAPH, // [c-s] create new paragraph below current paragraph
+    INSERT_PARAGRAPH(true),
+                      // [c-s] create new paragraph below current paragraph
                       // @param target index
 
     COMPLETION, // [c-s] ask completion candidates
@@ -91,7 +93,7 @@ public class Message {
     NOTES_INFO, // [s-c] list of note infos
                 // @param notes serialized List<NoteInfo> object
 
-    PARAGRAPH_REMOVE,
+    PARAGRAPH_REMOVE(true),
     PARAGRAPH_CLEAR_OUTPUT,
     PARAGRAPH_APPEND_OUTPUT,  // [s-c] append output
     PARAGRAPH_UPDATE_OUTPUT,  // [s-c] update (replace) output
@@ -103,14 +105,31 @@ public class Message {
     
     ANGULAR_OBJECT_UPDATED,  // [c-s] angular object value updated,
 
-    LIST_CONFIGURATIONS, // [c-s] ask all key/value pairs of configurations
-    CONFIGURATIONS_INFO, // [s-c] all key/value pairs of configurations
+    LIST_CONFIGURATIONS(true),
+                  // [c-s] ask all key/value pairs of configurations
+    CONFIGURATIONS_INFO(true), // [s-c] all key/value pairs of configurations
                   // @param settings serialized Map<String, String> object
 
-    CHECKPOINT_NOTEBOOK     // [c-s] checkpoint notebook to storage repository
+    CHECKPOINT_NOTEBOOK(true);
+                            // [c-s] checkpoint notebook to storage repository
                             // @param noteId
                             // @param checkpointName
 
+    private boolean writeOp = false;
+
+    private OP() {
+      this(false);
+    }
+    private OP(boolean writeOp) {
+      this.writeOp = writeOp;
+    }
+
+    public boolean isPermitted(HashSet<String> roles) {
+      if (roles.contains("admin") || roles.contains("dev")) {
+        return true;
+      }
+      return !writeOp;
+    }
   }
 
   public OP op;
@@ -118,7 +137,6 @@ public class Message {
   public String ticket = "anonymous";
   public String principal = "anonymous";
   public String roles = "";
-
   public Message(OP op) {
     this.op = op;
   }

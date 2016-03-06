@@ -127,7 +127,6 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
       callback: function(result) {
         if (result) {
           websocketMsgSrv.deleteNotebook(noteId);
-          $location.path('/#');
         }
       }
     });
