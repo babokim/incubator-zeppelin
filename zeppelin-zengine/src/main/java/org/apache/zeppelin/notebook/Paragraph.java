@@ -197,11 +197,13 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     if (result != null) {
       if (result instanceof InterpreterResult) {
         out.write(resultToCsv(((InterpreterResult) result).message()).getBytes("UTF-8"));
+        out.close();
         return out.toByteArray();
       } else if (result instanceof StringMap) {
         StringMap resultMap = (StringMap) result;
         if (resultMap.get("msg") != null) {
           out.write(resultToCsv(resultMap.get("msg").toString()).getBytes("UTF-8"));
+          out.close();
           return out.toByteArray();
         } else {
           return "No data".getBytes();
