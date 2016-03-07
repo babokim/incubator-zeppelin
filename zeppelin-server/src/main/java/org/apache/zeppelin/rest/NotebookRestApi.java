@@ -105,6 +105,10 @@ public class NotebookRestApi {
   @Path("{noteId}/permissions")
   @ZeppelinApi
   public Response getNotePermissions(@PathParam("noteId") String noteId) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
     HashMap<String, Set<String>> permissionsMap = new HashMap<>();
     permissionsMap.put("owners", notebookAuthorization.getOwners(noteId));
     permissionsMap.put("readers", notebookAuthorization.getReaders(noteId));
@@ -128,6 +132,11 @@ public class NotebookRestApi {
   @ZeppelinApi
   public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
       throws IOException {
+//    HashSet<String> roles = SecurityUtils.getRoles();
+//    if (!(roles.contains("admin") || roles.contains("dev"))) {
+//      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+//    }
+
     /**
      * TODO(jl): Fixed the type of HashSet
      * https://issues.apache.org/jira/browse/ZEPPELIN-1162
@@ -188,6 +197,10 @@ public class NotebookRestApi {
   @Path("interpreter/bind/{noteId}")
   @ZeppelinApi
   public Response bind(@PathParam("noteId") String noteId, String req) throws IOException {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+    }
     List<String> settingIdList = gson.fromJson(req, new TypeToken<List<String>>() {
     }.getType());
     notebook.bindInterpretersToNote(noteId, settingIdList);
@@ -201,6 +214,10 @@ public class NotebookRestApi {
   @Path("interpreter/bind/{noteId}")
   @ZeppelinApi
   public Response bind(@PathParam("noteId") String noteId) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+    }
     List<InterpreterSettingListForNoteBind> settingList = new LinkedList<>();
 
     List<InterpreterSetting> selectedSettings = notebook.getBindedInterpreterSettings(noteId);
