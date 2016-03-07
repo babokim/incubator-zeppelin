@@ -16,7 +16,7 @@
 
 angular.module('zeppelinWebApp')
   .controller('ParagraphCtrl', function($scope,$rootScope, $route, $window, $element, $routeParams, $location,
-                                         $timeout, $compile, websocketMsgSrv, SaveAsService) {
+                                         $timeout, $compile, websocketMsgSrv) {
   var ANGULAR_FUNCTION_OBJECT_NAME_PREFIX = '_Z_ANGULAR_FUNC_';
   $scope.paragraph = null;
   $scope.originalText = '';
@@ -441,7 +441,7 @@ angular.module('zeppelinWebApp')
       return;
     }
     console.log('Download node: %o paragraph: %o', $scope.note.id, $scope.paragraph.id);
-    SaveAsService.downloadParagraph($scope.note.id, $scope.paragraph.id);
+    window.open('/api/notebook/' + $scope.note.id + '/paragraph/' + $scope.paragraph.id + '/download', '_blank');
   };
 
   $scope.toggleEnableDisable = function () {

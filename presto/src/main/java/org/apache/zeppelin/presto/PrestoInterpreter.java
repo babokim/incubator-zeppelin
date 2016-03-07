@@ -335,6 +335,9 @@ public class PrestoInterpreter extends Interpreter {
             resultDataDir + "/" + context.getNoteId() + "_" + context.getParagraphId();
 
         resultFileMeta.outStream = new FileOutputStream(resultFileMeta.filePath);
+        resultFileMeta.outStream.write(0xEF);
+        resultFileMeta.outStream.write(0xBB);
+        resultFileMeta.outStream.write(0xBF);
         resultFileMeta.outStream.write(resultToCsv(msg.toString()).getBytes("UTF-8"));
       }
       String delimiter = "";

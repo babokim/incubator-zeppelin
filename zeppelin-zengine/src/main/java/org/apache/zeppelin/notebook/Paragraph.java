@@ -32,6 +32,7 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.io.StringReader;
@@ -187,22 +188,29 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return (InterpreterResult) getReturn();
   }
 
-  public String getResultMessage() {
+  public byte[] getResultMessage() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    out.write(0xEF);
+    out.write(0xBB);
+    out.write(0xBF);
+
     if (result != null) {
       if (result instanceof InterpreterResult) {
-        return resultToCsv(((InterpreterResult) result).message());
+        out.write(resultToCsv(((InterpreterResult) result).message()).getBytes("UTF-8"));
+        return out.toByteArray();
       } else if (result instanceof StringMap) {
         StringMap resultMap = (StringMap) result;
         if (resultMap.get("msg") != null) {
-          return resultToCsv(resultMap.get("msg").toString());
+          out.write(resultToCsv(resultMap.get("msg").toString()).getBytes("UTF-8"));
+          return out.toByteArray();
         } else {
-          return "No data";
+          return "No data".getBytes();
         }
       } else {
-        return result.toString();
+        return result.toString().getBytes();
       }
     } else {
-      return "No data";
+      return "No data".getBytes();
     }
   }
 
