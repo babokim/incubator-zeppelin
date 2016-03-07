@@ -85,6 +85,10 @@ public class NotebookRestApi {
   @GET
   @Path("{noteId}/permissions")
   public Response getNotePermissions(@PathParam("noteId") String noteId) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
     Note note = notebook.getNote(noteId);
     HashMap<String, HashSet> permissionsMap = new HashMap<String, HashSet>();
     permissionsMap.put("owners", note.getOwners());
@@ -109,11 +113,15 @@ public class NotebookRestApi {
   @Path("{noteId}/permissions")
   public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
       throws IOException {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
     HashMap<String, HashSet> permMap = gson.fromJson(req,
-            new TypeToken<HashMap<String, HashSet>>(){}.getType());
+        new TypeToken<HashMap<String, HashSet>>() {
+        }.getType());
     Note note = notebook.getNote(noteId);
     String principal = SecurityUtils.getPrincipal();
-    HashSet<String> roles = SecurityUtils.getRoles();
     LOG.info("Set permissions {} {} {} {} {}",
             noteId,
             principal,
@@ -146,6 +154,10 @@ public class NotebookRestApi {
   @PUT
   @Path("interpreter/bind/{noteId}")
   public Response bind(@PathParam("noteId") String noteId, String req) throws IOException {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+    }
     List<String> settingIdList = gson.fromJson(req, new TypeToken<List<String>>(){}.getType());
     notebook.bindInterpretersToNote(noteId, settingIdList);
     return new JsonResponse<>(Status.OK).build();
@@ -157,6 +169,10 @@ public class NotebookRestApi {
   @GET
   @Path("interpreter/bind/{noteId}")
   public Response bind(@PathParam("noteId") String noteId) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+    }
     List<InterpreterSettingListForNoteBind> settingList
       = new LinkedList<InterpreterSettingListForNoteBind>();
 

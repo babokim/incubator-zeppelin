@@ -451,7 +451,7 @@ public class NotebookServer extends WebSocketServlet implements
     }
   }
 
-  private void updateNote(WebSocket conn, HashSet<String> userAndRoles,
+  private void updateNote(NotebookSocket conn, HashSet<String> userAndRoles,
                           Notebook notebook, Message fromMessage)
       throws SchedulerException, IOException {
     String noteId = (String) fromMessage.get("id");
@@ -467,6 +467,11 @@ public class NotebookServer extends WebSocketServlet implements
 
     Note note = notebook.getNote(noteId);
     if (note != null) {
+      if (!note.isWriter(userAndRoles)) {
+        permissionError(conn, "updateNote", userAndRoles, note.getReaders());
+        broadcastNoteList();
+        return;
+      }
       boolean cronUpdated = isCronUpdated(config, note.getConfig());
       note.setName(name);
       note.setConfig(config);
@@ -524,7 +529,7 @@ public class NotebookServer extends WebSocketServlet implements
     Note note = notebook.getNote(noteId);
 
     if (!note.isOwner(userAndRoles)) {
-      permissionError(conn, "remove", userAndRoles, note.getOwners());
+      permissionError(conn, "removeNote", userAndRoles, note.getOwners());
       return;
     }
 
@@ -547,7 +552,7 @@ public class NotebookServer extends WebSocketServlet implements
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
     if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+      permissionError(conn, "updateParagraph", userAndRoles, note.getWriters());
       return;
     }
 
@@ -596,7 +601,7 @@ public class NotebookServer extends WebSocketServlet implements
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
     if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+      permissionError(conn, "removeParagraph", userAndRoles, note.getWriters());
       return;
     }
 
@@ -617,8 +622,8 @@ public class NotebookServer extends WebSocketServlet implements
 
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
-    if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+    if (!note.isReader(userAndRoles)) {
+      permissionError(conn, "clearParagraphOutput", userAndRoles, note.getWriters());
       return;
     }
 
@@ -745,7 +750,7 @@ public class NotebookServer extends WebSocketServlet implements
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
     if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+      permissionError(conn, "moveParagraph", userAndRoles, note.getWriters());
       return;
     }
 
@@ -757,11 +762,11 @@ public class NotebookServer extends WebSocketServlet implements
   private void insertParagraph(NotebookSocket conn, HashSet<String> userAndRoles,
                                Notebook notebook, Message fromMessage) throws IOException {
     final int index = (int) Double.parseDouble(fromMessage.get("index")
-            .toString());
+        .toString());
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
     if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+      permissionError(conn, "insertParagraph", userAndRoles, note.getWriters());
       return;
     }
 
@@ -779,8 +784,8 @@ public class NotebookServer extends WebSocketServlet implements
 
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
-    if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+    if (!note.isReader(userAndRoles)) {
+      permissionError(conn, "cancelParagraph", userAndRoles, note.getWriters());
       return;
     }
 
@@ -797,13 +802,17 @@ public class NotebookServer extends WebSocketServlet implements
 
     final Note note = notebook.getNote(getOpenNoteId(conn));
 
-    if (!note.isWriter(userAndRoles)) {
-      permissionError(conn, "write", userAndRoles, note.getWriters());
+    if (!note.isReader(userAndRoles)) {
+      permissionError(conn, "runParagraph", userAndRoles, note.getWriters());
       return;
     }
 
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
+    if (!p.getText().trim().equals(text)) {
+      permissionError(conn, "editParagraph", userAndRoles, note.getWriters());
+      return;
+    }
     p.setText(text);
     p.setTitle((String) fromMessage.get("title"));
     if (!fromMessage.principal.equals("anonymous")) {
