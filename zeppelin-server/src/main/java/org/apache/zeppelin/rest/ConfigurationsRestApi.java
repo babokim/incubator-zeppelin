@@ -21,6 +21,7 @@ import org.apache.zeppelin.annotation.ZeppelinApi;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.server.JsonResponse;
+import org.apache.zeppelin.utils.SecurityUtils;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -28,6 +29,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -49,6 +51,11 @@ public class ConfigurationsRestApi {
   @Path("all")
   @ZeppelinApi
   public Response getAll() {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (roles == null || !(roles.contains("dev") || roles.contains("admin"))) {
+      return new JsonResponse(Status.FORBIDDEN,
+          SecurityUtils.getPrincipal() + " can't access.", "").build();
+    }
     ZeppelinConfiguration conf = notebook.getConf();
 
     Map<String, String> configurations = conf.dumpConfigurations(conf,
@@ -71,6 +78,12 @@ public class ConfigurationsRestApi {
   @Path("prefix/{prefix}")
   @ZeppelinApi
   public Response getByPrefix(@PathParam("prefix") final String prefix) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (roles == null || !(roles.contains("dev") || roles.contains("admin"))) {
+      return new JsonResponse(Status.FORBIDDEN,
+          SecurityUtils.getPrincipal() + " can't access.", "").build();
+    }
+
     ZeppelinConfiguration conf = notebook.getConf();
 
     Map<String, String> configurations = conf.dumpConfigurations(conf,

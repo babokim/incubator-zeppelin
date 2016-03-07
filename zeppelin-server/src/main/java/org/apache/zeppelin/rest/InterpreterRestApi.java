@@ -96,6 +96,11 @@ public class InterpreterRestApi {
   @ZeppelinApi
   public Response newSettings(String message) {
     try {
+      HashSet<String> roles = SecurityUtils.getRoles();
+      if (roles == null || !(roles.contains("dev") || roles.contains("admin"))) {
+        return new JsonResponse(Status.FORBIDDEN,
+            SecurityUtils.getPrincipal() + " can't access.", "").build();
+      }
       NewInterpreterSettingRequest request =
           gson.fromJson(message, NewInterpreterSettingRequest.class);
       Properties p = new Properties();
