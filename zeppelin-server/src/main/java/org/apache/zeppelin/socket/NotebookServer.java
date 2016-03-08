@@ -1144,7 +1144,7 @@ public class NotebookServer extends WebSocketServlet implements
 
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
-    if (!p.getText().trim().equals(text)) {
+    if (!note.isWriter(userAndRoles) && !p.getText().trim().equals(text)) {
       permissionError(conn, "editParagraph", userAndRoles, note.getWriters());
       return;
     }
