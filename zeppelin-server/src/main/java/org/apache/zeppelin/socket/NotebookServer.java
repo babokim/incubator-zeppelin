@@ -809,15 +809,22 @@ public class NotebookServer extends WebSocketServlet implements
 
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
-    if (!note.isWriter(userAndRoles) && !p.getText().trim().equals(text)) {
-      permissionError(conn, "editParagraph", userAndRoles, note.getWriters());
-      return;
+    if (!note.isWriter(userAndRoles)) {
+      String originText = p.getText().trim().replace("\n", " ");
+      String messageText = text.trim().replace("\n", " ");
+
+      if (!originText.equals(messageText)) {
+        permissionError(conn, "editParagraph", userAndRoles, note.getWriters());
+        return;
+      }
     }
     p.setText(text);
     p.setTitle((String) fromMessage.get("title"));
     if (!fromMessage.principal.equals("anonymous")) {
-      AuthenticationInfo authenticationInfo = new AuthenticationInfo(fromMessage.principal,
-          fromMessage.ticket);
+      AuthenticationInfo authenticationInfo =
+          new AuthenticationInfo(fromMessage.principal,
+              fromMessage.ticket,
+              new HashSet<String>(userAndRoles));
       p.setAuthenticationInfo(authenticationInfo);
 
     } else {

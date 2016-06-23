@@ -70,11 +70,11 @@ public class Message {
     CANCEL_PARAGRAPH, // [c-s] cancel paragraph run
                       // @param id paragraph id
 
-    MOVE_PARAGRAPH(true), // [c-s] move paragraph order
+    MOVE_PARAGRAPH, // [c-s] move paragraph order
                     // @param id paragraph id
                     // @param index index the paragraph want to go
 
-    INSERT_PARAGRAPH(true),
+    INSERT_PARAGRAPH,
                       // [c-s] create new paragraph below current paragraph
                       // @param target index
 
@@ -93,7 +93,7 @@ public class Message {
     NOTES_INFO, // [s-c] list of note infos
                 // @param notes serialized List<NoteInfo> object
 
-    PARAGRAPH_REMOVE(true),
+    PARAGRAPH_REMOVE,
     PARAGRAPH_CLEAR_OUTPUT,
     PARAGRAPH_APPEND_OUTPUT,  // [s-c] append output
     PARAGRAPH_UPDATE_OUTPUT,  // [s-c] update (replace) output

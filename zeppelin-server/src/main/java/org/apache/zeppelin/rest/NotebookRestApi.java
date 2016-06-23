@@ -170,9 +170,9 @@ public class NotebookRestApi {
   @Path("interpreter/bind/{noteId}")
   public Response bind(@PathParam("noteId") String noteId) {
     HashSet<String> roles = SecurityUtils.getRoles();
-    if (!(roles.contains("admin") || roles.contains("dev"))) {
-      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
-    }
+//    if (!(roles.contains("admin") || roles.contains("dev"))) {
+//      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+//    }
     List<InterpreterSettingListForNoteBind> settingList
       = new LinkedList<InterpreterSettingListForNoteBind>();
 

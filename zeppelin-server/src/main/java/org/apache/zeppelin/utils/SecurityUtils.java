@@ -79,7 +79,7 @@ public class SecurityUtils {
     HashSet<String> roles = new HashSet<>();
     String roleStr = "";
     if (subject.isAuthenticated()) {
-      for (String role : Arrays.asList("admin", "dev", "emp")) {
+      for (String role : Arrays.asList("admin", "dev", "emp", "emp_writer")) {
         if (subject.hasRole(role)) {
           roles.add(role);
           roleStr += role + ",";
