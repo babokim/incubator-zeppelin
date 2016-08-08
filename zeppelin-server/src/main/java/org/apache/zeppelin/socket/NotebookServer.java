@@ -121,10 +121,10 @@ public class NotebookServer extends WebSocketServlet implements
     Notebook notebook = notebook();
     try {
       Message messagereceived = deserializeMessage(msg);
-      LOG.debug("RECEIVE << " + messagereceived.op);
-      LOG.debug("RECEIVE PRINCIPAL << " + messagereceived.principal);
-      LOG.debug("RECEIVE TICKET << " + messagereceived.ticket);
-      LOG.debug("RECEIVE ROLES << " + messagereceived.roles);
+      LOG.info("RECEIVE << " + messagereceived.op);
+      LOG.info("RECEIVE PRINCIPAL << " + messagereceived.principal);
+      LOG.info("RECEIVE TICKET << " + messagereceived.ticket);
+      LOG.info("RECEIVE ROLES << " + messagereceived.roles);
 
       if (LOG.isTraceEnabled()) {
         LOG.trace("RECEIVE MSG = " + messagereceived);
@@ -1129,27 +1129,22 @@ public class NotebookServer extends WebSocketServlet implements
     String noteId = getOpenNoteId(conn);
     final Note note = notebook.getNote(noteId);
 
-//    KHJ
-//    if (!note.isWriter(userAndRoles)) {
-//      permissionError(conn, "moveParagraph", userAndRoles, note.getWriters());
-//      return;
-//    }
-
     NotebookAuthorization notebookAuthorization = notebook.getNotebookAuthorization();
-    if (!notebookAuthorization.isWriter(noteId, userAndRoles)) {
-      permissionError(conn, "write", fromMessage.principal,
+    if (!notebookAuthorization.isReader(noteId, userAndRoles)) {
+      permissionError(conn, "read", fromMessage.principal,
           userAndRoles, notebookAuthorization.getWriters(noteId));
       return;
     }
 
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
-    if (!note.isWriter(userAndRoles)) {
+    if (!notebookAuthorization.isWriter(noteId, userAndRoles)) {
       String originText = p.getText().trim().replace("\n", " ");
       String messageText = text.trim().replace("\n", " ");
 
       if (!originText.equals(messageText)) {
-        permissionError(conn, "editParagraph", userAndRoles, note.getWriters());
+        permissionError(conn, "write", fromMessage.principal,
+            userAndRoles, notebookAuthorization.getWriters(noteId));
         return;
       }
     }

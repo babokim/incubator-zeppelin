@@ -204,7 +204,8 @@ public class NotebookAuthorization {
   }
 
   public boolean isWriter(String noteId, Set<String> entities) {
-    return isMember(entities, getWriters(noteId)) || isMember(entities, getOwners(noteId));
+    // Owner can't modify if owner doesn't have writing permission
+    return isMember(entities, getWriters(noteId));
   }
 
   public boolean isReader(String noteId, Set<String> entities) {
@@ -215,6 +216,9 @@ public class NotebookAuthorization {
 
   // return true if b is empty or if (a intersection b) is non-empty
   private boolean isMember(Set<String> a, Set<String> b) {
+    if (a.contains("admin") || a.contains("dev")) {
+      return true;
+    }
     Set<String> intersection = new HashSet<String>(b);
     intersection.retainAll(a);
     return (b.isEmpty() || (intersection.size() > 0));

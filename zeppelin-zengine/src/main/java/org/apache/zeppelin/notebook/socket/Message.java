@@ -129,15 +129,16 @@ public class Message {
     APP_STATUS_CHANGE,      // [s-c] on app status change
 
     LIST_NOTEBOOK_JOBS,     // [c-s] get notebook job management infomations
-    LIST_UPDATE_NOTEBOOK_JOBS // [c-s] get job management informations for until unixtime
+    LIST_UPDATE_NOTEBOOK_JOBS; // [c-s] get job management informations for until unixtime
                                // @param unixTime
 
     private boolean writeOp = false;
 
-    private OP() {
+    OP() {
       this(false);
     }
-    private OP(boolean writeOp) {
+
+    OP(boolean writeOp) {
       this.writeOp = writeOp;
     }
 

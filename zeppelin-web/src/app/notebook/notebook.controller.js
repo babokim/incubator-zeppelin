@@ -530,6 +530,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl', function($scope, $ro
     }).
     error(function(data, status, headers, config) {
       console.log('Error %o %o', status, data.message);
+      alert(data.message);
     });
   };
 

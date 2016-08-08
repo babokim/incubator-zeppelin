@@ -37,6 +37,7 @@ import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.commons.lang.StringUtils;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.presto.AccessControlManager.AclResult;
 import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.user.AuthenticationInfo;
@@ -66,6 +67,7 @@ public class PrestoInterpreter extends Interpreter {
   static final String PRESTO_MAX_ROW = "presto.rows.max";
   static final String PRESTO_RESULT_PATH = "presto.result.path";
   static final String PRESTO_RESULT_EXPIRE_DAY = "presto.result.expire";
+  static final String PRESTO_ACL_PROPERTY = "presto.acl.properties.file";
 
   static {
     Interpreter.register(
@@ -82,7 +84,9 @@ public class PrestoInterpreter extends Interpreter {
             .add(PRESTO_RESULT_PATH, "/tmp/zeppelin-user", "Temporary directory for result data.")
             .add(PRESTO_RESULT_EXPIRE_DAY, "2", "Result data will be expire after this day.")
             .add(PRESTOSERVER_USER, "Presto", "The Presto user")
-            .add(PRESTOSERVER_PASSWORD, "", "The password for the Presto user").build());
+            .add(PRESTOSERVER_PASSWORD, "", "The password for the Presto user")
+            .add(PRESTO_ACL_PROPERTY, "",
+                "Presto ACL property file path(default is conf/presto-acl.properties)").build());
   }
 
   private int maxRowsinNotebook = 1000;
@@ -359,7 +363,7 @@ public class PrestoInterpreter extends Interpreter {
           return planResult;
         }
         try {
-          AccessControlManager aclInstance = AccessControlManager.getInstance();
+          AccessControlManager aclInstance = AccessControlManager.getInstance(property);
           String plan = planResult.message();
           StringBuilder aclMessage = null;
           boolean canAccess = false;
@@ -644,7 +648,7 @@ public class PrestoInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
 
@@ -655,13 +659,15 @@ public class PrestoInterpreter extends Interpreter {
 
   public static void main(String[] args) throws Exception {
     Properties property = new Properties();
-    property.setProperty(PRESTOSERVER_URL, "http://localhost:9091");
+    property.setProperty(PRESTOSERVER_URL, "http://localhost:9090");
     property.setProperty(PRESTOSERVER_CATALOG, "hive");
     property.setProperty(PRESTOSERVER_SCHEMA, "default");
     property.setProperty(PRESTOSERVER_USER, "hadoop");
     property.setProperty(PRESTOSERVER_PASSWORD, "1234");
     property.setProperty(PRESTO_MAX_RESULT_ROW, "100");
     property.setProperty(PRESTO_MAX_ROW, "1000");
+    property.setProperty(PRESTO_ACL_PROPERTY,
+        "/Users/hyoungjunkim/work/workspace/incubator-zeppelin/conf/presto-acl.properties");
 
     String sql = "";
 
@@ -669,13 +675,13 @@ public class PrestoInterpreter extends Interpreter {
     presto.open();
 
     HashSet<String> userAndRoles = new HashSet<String>();
-    userAndRoles.add("babokim");
+    userAndRoles.add("dev");
 
     InterpreterContext context = new InterpreterContext("noteId1",
         "paragraphId1",
         "paragraphTitle",
         "paragraphText",
-        new AuthenticationInfo("babokim", "", userAndRoles),
+        new AuthenticationInfo("admin", "", userAndRoles),
         null, //Map<String, Object> config,
         null, //GUI gui,
         null, //AngularObjectRegistry angularObjectRegistry,
@@ -686,7 +692,7 @@ public class PrestoInterpreter extends Interpreter {
 
     InterpreterResult aclResult = presto.checkAclAndExecuteSql(sql, context);
     if (aclResult.code() == Code.ERROR) {
-      System.out.println("ACL error");
+      System.out.println("ACL error: " + aclResult.message());
       return;
     }
     InterpreterResult result = presto.executeSql(sql, context, true);

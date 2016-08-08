@@ -54,7 +54,7 @@ angular.module('zeppelinWebApp').factory('websocketEvents',
     console.log('Receive << %o, %o', payload.op, payload);
     var op = payload.op;
     var data = payload.data;
-    if (data.error != null) {
+    if (data.error !== undefined) {
       alert(data.error);
       return;
     }

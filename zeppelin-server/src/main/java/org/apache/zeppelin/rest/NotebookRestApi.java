@@ -38,7 +38,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.StreamingOutput;
 
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
@@ -66,11 +65,6 @@ import org.apache.zeppelin.server.JsonResponse;
 import org.apache.zeppelin.socket.NotebookServer;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.utils.SecurityUtils;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.GsonBuilder;
-import com.google.gson.stream.JsonReader;
 
 /**
  * Rest api endpoint for the noteBook.
@@ -132,10 +126,10 @@ public class NotebookRestApi {
   @ZeppelinApi
   public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
       throws IOException {
-//    HashSet<String> roles = SecurityUtils.getRoles();
-//    if (!(roles.contains("admin") || roles.contains("dev"))) {
-//      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
-//    }
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
 
     /**
      * TODO(jl): Fixed the type of HashSet
@@ -146,7 +140,6 @@ public class NotebookRestApi {
         }.getType());
     Note note = notebook.getNote(noteId);
     String principal = SecurityUtils.getPrincipal();
-    HashSet<String> roles = SecurityUtils.getRoles();
     LOG.info("Set permissions {} {} {} {} {}", noteId, principal, permMap.get("owners"),
         permMap.get("readers"), permMap.get("writers"));
 
@@ -214,10 +207,6 @@ public class NotebookRestApi {
   @Path("interpreter/bind/{noteId}")
   @ZeppelinApi
   public Response bind(@PathParam("noteId") String noteId) {
-    HashSet<String> roles = SecurityUtils.getRoles();
-    if (!(roles.contains("admin") || roles.contains("dev"))) {
-      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
-    }
     List<InterpreterSettingListForNoteBind> settingList = new LinkedList<>();
 
     List<InterpreterSetting> selectedSettings = notebook.getBindedInterpreterSettings(noteId);

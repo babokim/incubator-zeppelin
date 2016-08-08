@@ -21,6 +21,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -40,12 +41,21 @@ public class AccessControlManager {
   private Map<String, HashSet<AccessControlResource>> tablesHasAllowedColumns =
       new HashMap<String, HashSet<AccessControlResource>>();
 
-  private AccessControlManager() {
+  private final Properties interpreterProperties;
+
+  private Set<String> hiveCatalogNames = new HashSet<String>();
+
+  //catalog.schema.table -> column name
+  private Map<String, String> partitionColumnNames = new HashMap<String, String>();
+
+  private AccessControlManager(Properties interpreterProperties) {
+    this.interpreterProperties = interpreterProperties;
   }
 
-  public static synchronized AccessControlManager getInstance() throws IOException {
+  public static synchronized AccessControlManager getInstance(
+      Properties interpreterProperties) throws IOException {
     if (instance == null) {
-      instance = new AccessControlManager();
+      instance = new AccessControlManager(interpreterProperties);
       instance.loadConfig();
     }
 
@@ -54,14 +64,52 @@ public class AccessControlManager {
 
   public synchronized void loadConfig() throws IOException {
     Properties properties = new Properties();
-    InputStream in = ClassLoader.getSystemResourceAsStream("presto-acl.properties");
+
+    String aclPropertiesFile =
+        (String) interpreterProperties.get(PrestoInterpreter.PRESTO_ACL_PROPERTY);
+
+    InputStream in = null;
+    if (aclPropertiesFile != null && !aclPropertiesFile.trim().isEmpty()) {
+      in = new FileInputStream(aclPropertiesFile);
+    } else if (in == null) {
+      in = ClassLoader.getSystemResourceAsStream("presto-acl.properties");
+      if (in == null) {
+        in = ClassLoader.getSystemResourceAsStream("conf/presto-acl.properties");
+      }
+    }
     if (in != null) {
       properties.load(in);
 
+      // Common property
+      Object hiveCatalogs = properties.get("common.hive.metastore.catalogs");
+      if (hiveCatalogs != null) {
+        for (String eachHiveCatalog: hiveCatalogs.toString().split(",")) {
+          hiveCatalogNames.add(eachHiveCatalog.trim());
+        }
+      }
+
+      Object partitionColumns = properties.get("common.partitioned.columns");
+      if (partitionColumns != null) {
+        for (String eachPartitionColumn: partitionColumns.toString().split(",")) {
+          String[] tokens = eachPartitionColumn.trim().split("\\.");
+          if (tokens.length != 4) {
+            LOG.warn("Wrong common.partitioned.columns format. Format should be <catalog>.<schema>.<table>.<column>");
+            continue;
+          }
+          partitionColumnNames.put(tokens[0] + "." + tokens[1] + "." + tokens[2], tokens[3]);
+        }
+      }
+
+      // ACL properties
       Enumeration keys = properties.keys();
 
       while (keys.hasMoreElements()) {
         Object key = keys.nextElement();
+
+        if (key.toString().startsWith("common.")) {
+          continue;
+        }
+
         String permission = properties.get(key).toString();
 
         String[] keyTokens = key.toString().split("\\.");
@@ -132,6 +180,8 @@ public class AccessControlManager {
           }
         }
       }
+    } else {
+      LOG.error("No presto-acl.properties files in classpath.");
     }
   }
 
@@ -181,11 +231,12 @@ public class AccessControlManager {
             requiredPermission = PermissionType.WRITE;
           } else if (line.startsWith("TableScan")) {
             AtomicBoolean hasPartitionKey = new AtomicBoolean(true);
+            StringBuilder noPartitionColumnInfo = new StringBuilder();
             resources = parseTableScanPlan(reader, line, isInfoQuery,
-                lastLine, hasPartitionKey);
+                lastLine, hasPartitionKey, noPartitionColumnInfo);
             if (!hasPartitionKey.get()) {
               errorMessage.append(
-                  "No partition column(dt) in where clause.");
+                  "No partition column(" + noPartitionColumnInfo + ") in where clause.");
               return AclResult.NEED_PARTITION_COLUMN;
             }
             requiredPermission = PermissionType.READ;
@@ -246,7 +297,7 @@ public class AccessControlManager {
     AccessControlResource resource = new AccessControlResource(catalog, schema, null, null);
     resources.add(resource);
 
-    LOG.info("Add Create AccessControlResource: " + resource);
+    LOG.debug("Add Create AccessControlResource: " + resource);
     return resources;
   }
 
@@ -255,7 +306,8 @@ public class AccessControlManager {
       String currentLine,
       boolean isInfoQuery,
       StringBuilder lastReadLine,
-      AtomicBoolean hasPartitionKey) throws IOException {
+      AtomicBoolean hasPartitionKey,
+      StringBuilder noPartitionColumnInfo) throws IOException {
 
     int startPos = currentLine.indexOf("[");
     if (startPos <= 0) {
@@ -290,7 +342,7 @@ public class AccessControlManager {
       return resources;
     }
 
-    if (catalog.equals("hive")) {
+    if (hiveCatalogNames.contains(catalog)) {
       schema = tokens[2];
       table = tokens[3];
     } else if (catalog.equals("kafka")) {
@@ -319,10 +371,9 @@ public class AccessControlManager {
     List<AccessControlResource> resources = new ArrayList<AccessControlResource>();
     AccessControlResource resource = new AccessControlResource(catalog, schema, table, null);
     resources.add(resource);
-    LOG.info("Add Scan AccessControlResource: " + resource);
+    LOG.debug("Add Scan AccessControlResource: " + resource);
 
     String line = null;
-    boolean hasPartitionColumn = currentLine.indexOf("\"dt") > 0;
     while ((line = reader.readLine()) != null) {
       line = line.trim();
       if (line.startsWith("-") || line.startsWith("DROP")) {
@@ -347,11 +398,15 @@ public class AccessControlManager {
       }
     }
 
-    boolean needPartitonColumn =
-        catalog.equals("hive") && table.startsWith("jp") && table.indexOf("log") > 0;
+    String qualifiedName = catalog + "." + schema + "." + table;
+    boolean needPartitonColumn = hiveCatalogNames.contains(catalog) &&
+        partitionColumnNames.containsKey(qualifiedName);
 
-    if (needPartitonColumn && !hasPartitionColumn) {
-      hasPartitionKey.set(false);
+    if (needPartitonColumn) {
+      String partitionColumnName = partitionColumnNames.get(qualifiedName);
+      boolean hasPartitionColumn = currentLine.indexOf("\"" + partitionColumnName) > 0;
+      hasPartitionKey.set(hasPartitionColumn);
+      noPartitionColumnInfo.append(qualifiedName + "." + partitionColumnName);
     } else {
       hasPartitionKey.set(true);
     }
@@ -381,6 +436,7 @@ public class AccessControlManager {
                            AccessControlResource resource,
                            PermissionType permissionType) {
     if (acls.isEmpty()) {
+      LOG.warn("No ACL properties. Please check your presto-acl.properties file");
       return true;
     }
 
