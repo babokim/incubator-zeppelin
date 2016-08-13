@@ -34,3 +34,4 @@ md              org.apache.zeppelin:zeppelin-markdown:0.6.1             Markdown
 postgresql      org.apache.zeppelin:zeppelin-postgresql:0.6.1           Postgresql interpreter
 python          org.apache.zeppelin:zeppelin-python:0.6.1               Python interpreter
 shell           org.apache.zeppelin:zeppelin-shell:0.6.1                Shell command
+presto          org.apache.zeppelin:zeppelin-presto:0.6.0               Presto interpreter
