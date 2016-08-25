@@ -25,6 +25,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
+import java.util.HashSet;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -180,8 +181,11 @@ public class JDBCInterpreter extends Interpreter {
     SqlCompleter completer = null;
     try {
       Set<String> keywordsCompletions = SqlCompleter.getSqlKeywordsCompletions(jdbcConnection);
-      Set<String> dataModelCompletions =
-          SqlCompleter.getDataModelMetadataCompletions(jdbcConnection);
+      Set<String> dataModelCompletions = new HashSet<>();
+
+      // Metadata 조회 시 시간이 오래걸리는 문제로 주석 처리
+      //    SqlCompleter.getDataModelMetadataCompletions(jdbcConnection);
+
       SetView<String> allCompletions = Sets.union(keywordsCompletions, dataModelCompletions);
       completer = new SqlCompleter(allCompletions, dataModelCompletions);
 
