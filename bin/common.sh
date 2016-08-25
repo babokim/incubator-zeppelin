@@ -16,6 +16,10 @@
 # limitations under the License.
 #
 
+JAVA_HOME=/home/hadoop/servers/jdk1.8.0_101
+
+ZEPPELIN_CLASSPATH+=":/home/hadoop/servers/jdk1.8.0_101/jre/lib/*:/home/hadoop/servers/jdk1.8.0_101/jre/lib/ext/*"
+
 if [ -L ${BASH_SOURCE-$0} ]; then
   FWDIR=$(dirname $(readlink "${BASH_SOURCE-$0}"))
 else
@@ -114,7 +118,8 @@ if [[ -z "${ZEPPELIN_ENCODING}" ]]; then
 fi
 
 if [[ -z "$ZEPPELIN_MEM" ]]; then
-  export ZEPPELIN_MEM="-Xms1024m -Xmx1024m -XX:MaxPermSize=512m"
+#  export ZEPPELIN_MEM="-Xms1024m -Xmx1024m -XX:MaxPermSize=512m"
+  export ZEPPELIN_MEM="-Xms2048m -Xmx2048m -XX:MaxPermSize=512m"
 fi
 
 JAVA_OPTS+=" ${ZEPPELIN_JAVA_OPTS} -Dfile.encoding=${ZEPPELIN_ENCODING} ${ZEPPELIN_MEM}"
