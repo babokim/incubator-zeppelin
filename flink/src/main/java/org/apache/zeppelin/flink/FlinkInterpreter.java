@@ -17,21 +17,16 @@
  */
 package org.apache.zeppelin.flink;
 
+import java.lang.reflect.InvocationTargetException;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.scala.FlinkILoop;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.minicluster.LocalFlinkMiniCluster;
@@ -41,13 +36,15 @@ import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.InterpreterUtils;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import scala.Console;
 import scala.None;
-import scala.Option;
 import scala.Some;
+import scala.collection.JavaConversions;
+import scala.collection.immutable.Nil;
 import scala.runtime.AbstractFunction0;
 import scala.tools.nsc.Settings;
 import scala.tools.nsc.interpreter.IMain;
@@ -69,19 +66,6 @@ public class FlinkInterpreter extends Interpreter {
 
   public FlinkInterpreter(Properties property) {
     super(property);
-  }
-
-  static {
-    Interpreter.register(
-        "flink",
-        "flink",
-        FlinkInterpreter.class.getName(),
-        new InterpreterPropertyBuilder()
-                .add("host", "local",
-                    "host name of running JobManager. 'local' runs flink in local mode")
-          .add("port", "6123", "port of running JobManager")
-          .build()
-    );
   }
 
   @Override
@@ -110,7 +94,7 @@ public class FlinkInterpreter extends Interpreter {
 
     // prepare bindings
     imain.interpret("@transient var _binder = new java.util.HashMap[String, Object]()");
-    binder = (Map<String, Object>) getValue("_binder");    
+    Map<String, Object> binder = (Map<String, Object>) getLastObject();
 
     // import libraries
     imain.interpret("import scala.tools.nsc.io._");
@@ -119,7 +103,10 @@ public class FlinkInterpreter extends Interpreter {
     
     imain.interpret("import org.apache.flink.api.scala._");
     imain.interpret("import org.apache.flink.api.common.functions._");
-    imain.bindValue("env", env);
+
+    binder.put("env", env);
+    imain.interpret("val env = _binder.get(\"env\").asInstanceOf["
+        + env.getClass().getName() + "]");
   }
 
   private boolean localMode() {
@@ -137,7 +124,7 @@ public class FlinkInterpreter extends Interpreter {
 
   private int getPort() {
     if (localMode()) {
-      return localFlinkCluster.getJobManagerRPCPort();
+      return localFlinkCluster.getLeaderRPCPort();
     } else {
       return Integer.parseInt(getProperty("port"));
     }
@@ -208,16 +195,11 @@ public class FlinkInterpreter extends Interpreter {
     return paths;
   }
 
-  public Object getValue(String name) {
-    IMain imain = flinkIloop.intp();
-    Object ret = imain.valueOfTerm(name);
-    if (ret instanceof None) {
-      return null;
-    } else if (ret instanceof Some) {
-      return ((Some) ret).get();
-    } else {
-      return ret;
-    }
+  public Object getLastObject() {
+    Object obj = imain.lastRequest().lineRep().call(
+        "$result",
+        JavaConversions.asScalaBuffer(new LinkedList<Object>()));
+    return obj;
   }
 
   @Override
@@ -253,12 +235,34 @@ public class FlinkInterpreter extends Interpreter {
     Code r = null;
 
     String incomplete = "";
+    boolean inComment = false;
+
     for (int l = 0; l < linesToRun.length; l++) {
       final String s = linesToRun[l];
       // check if next line starts with "." (but not ".." or "./") it is treated as an invocation
       if (l + 1 < linesToRun.length) {
         String nextLine = linesToRun[l + 1].trim();
-        if (nextLine.startsWith(".") && !nextLine.startsWith("..") && !nextLine.startsWith("./")) {
+        boolean continuation = false;
+        if (nextLine.isEmpty()
+                || nextLine.startsWith("//")         // skip empty line or comment
+                || nextLine.startsWith("}")
+                || nextLine.startsWith("object")) { // include "} object" for Scala companion object
+          continuation = true;
+        } else if (!inComment && nextLine.startsWith("/*")) {
+          inComment = true;
+          continuation = true;
+        } else if (inComment && nextLine.lastIndexOf("*/") >= 0) {
+          inComment = false;
+          continuation = true;
+        } else if (nextLine.length() > 1
+                && nextLine.charAt(0) == '.'
+                && nextLine.charAt(1) != '.'     // ".."
+                && nextLine.charAt(1) != '/') {  // "./"
+          continuation = true;
+        } else if (inComment) {
+          continuation = true;
+        }
+        if (continuation) {
           incomplete += s + "\n";
           continue;
         }
@@ -326,13 +330,18 @@ public class FlinkInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
-    return new LinkedList<String>();
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
+    return new LinkedList<>();
   }
 
   private void startFlinkMiniCluster() {
     localFlinkCluster = new LocalFlinkMiniCluster(flinkConf, false);
-    localFlinkCluster.waitForTaskManagersToBeRegistered();
+
+    try {
+      localFlinkCluster.start(true);
+    } catch (Exception e){
+      throw new RuntimeException("Could not start Flink mini cluster.", e);
+    }
   }
 
   private void stopFlinkMiniCluster() {

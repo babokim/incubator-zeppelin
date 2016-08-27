@@ -39,7 +39,7 @@ except ImportError:
 
 # Location of your Zeppelin git development area
 ZEPPELIN_HOME = os.environ.get("ZEPPELIN_HOME", os.getcwd())
-# Remote name which points to the Gihub site
+# Remote name which points to the Github site
 PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache-github")
 # Remote name which points to Apache git
 PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "apache")
@@ -48,8 +48,8 @@ JIRA_USERNAME = os.environ.get("JIRA_USERNAME", "moon")
 # ASF JIRA password
 JIRA_PASSWORD = os.environ.get("JIRA_PASSWORD", "00000")
 
-GITHUB_BASE = "https://github.com/apache/incubator-zeppelin/pulls"
-GITHUB_API_BASE = "https://api.github.com/repos/apache/incubator-zeppelin"
+GITHUB_BASE = "https://github.com/apache/zeppelin/pull"
+GITHUB_API_BASE = "https://api.github.com/repos/apache/zeppelin"
 JIRA_BASE = "https://issues.apache.org/jira/browse"
 JIRA_API_BASE = "https://issues.apache.org/jira"
 # Prefix added to temporary branches
@@ -280,7 +280,7 @@ def resolve_jira_issue(merge_branches, comment, default_jira_id=""):
 
 
 def resolve_jira_issues(title, merge_branches, comment):
-    jira_ids = re.findall("ZEPPELIN-[0-9]{4,5}", title)
+    jira_ids = re.findall("ZEPPELIN-[0-9]{3,5}", title)
 
     if len(jira_ids) == 0:
         resolve_jira_issue(merge_branches, comment)
@@ -352,5 +352,5 @@ if JIRA_IMPORTED:
         print "JIRA_USERNAME and JIRA_PASSWORD not set"
         print "Exiting without trying to close the associated JIRA."
 else:
-    print "Could not find jira-python library. Run 'sudo pip install jira-python' to install."
+    print "Could not find jira library. Run 'sudo pip install jira' to install."
     print "Exiting without trying to close the associated JIRA."

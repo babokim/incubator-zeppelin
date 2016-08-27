@@ -22,6 +22,30 @@ package org.apache.zeppelin.interpreter;
  */
 public class InterpreterOption {
   boolean remote;
+  String host = null;
+  int port = -1;
+  boolean perNoteSession;
+  boolean perNoteProcess;
+  
+  boolean isExistingProcess;
+
+
+  public boolean isExistingProcess() {
+    return isExistingProcess;
+  }
+
+  public void setExistingProcess(boolean isExistingProcess) {
+    this.isExistingProcess = isExistingProcess;
+  }
+
+  public void setPort(int port) {
+    this.port = port;
+  }
+
+  public void setHost(String host) {
+    this.host = host;
+  }
+
 
   public InterpreterOption() {
     remote = false;
@@ -37,5 +61,33 @@ public class InterpreterOption {
 
   public void setRemote(boolean remote) {
     this.remote = remote;
+  }
+
+  public boolean isPerNoteSession() {
+    return perNoteSession;
+  }
+
+  public void setPerNoteSession(boolean perNoteSession) {
+    this.perNoteSession = perNoteSession;
+  }
+
+  public boolean isConnectExistingProcess() {
+    return (host != null && port != -1);
+  }
+
+  public String getHost() {
+    return host;
+  }
+
+  public int getPort() {
+    return port;
+  }
+
+  public boolean isPerNoteProcess() {
+    return perNoteProcess;
+  }
+
+  public void setPerNoteProcess(boolean perNoteProcess) {
+    this.perNoteProcess = perNoteProcess;
   }
 }

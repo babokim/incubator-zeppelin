@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -36,10 +37,13 @@ import org.apache.commons.vfs2.Selectors;
 import org.apache.commons.vfs2.VFS;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
+import org.apache.zeppelin.notebook.ApplicationState;
 import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.NoteInfo;
 import org.apache.zeppelin.notebook.Paragraph;
+import org.apache.zeppelin.notebook.NotebookImportDeserializer;
 import org.apache.zeppelin.scheduler.Job.Status;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,14 +58,17 @@ public class VFSNotebookRepo implements NotebookRepo {
 
   private FileSystemManager fsManager;
   private URI filesystemRoot;
-
   private ZeppelinConfiguration conf;
 
   public VFSNotebookRepo(ZeppelinConfiguration conf) throws IOException {
     this.conf = conf;
 
     try {
-      filesystemRoot = new URI(conf.getNotebookDir());
+      if (conf.isWindowsPath(conf.getNotebookDir())) {
+        filesystemRoot = new File(conf.getNotebookDir()).toURI();
+      } else {
+        filesystemRoot = new URI(conf.getNotebookDir());
+      }
     } catch (URISyntaxException e1) {
       throw new IOException(e1);
     }
@@ -73,10 +80,14 @@ public class VFSNotebookRepo implements NotebookRepo {
       } catch (URISyntaxException e) {
         throw new IOException(e);
       }
-    } else {
-      this.filesystemRoot = filesystemRoot;
     }
+
     fsManager = VFS.getManager();
+    FileObject file = fsManager.resolveFile(filesystemRoot.getPath());
+    if (!file.exists()) {
+      logger.info("Notebook dir doesn't exist, create.");
+      file.createFolder();
+    }
   }
 
   private String getPath(String path) {
@@ -100,7 +111,7 @@ public class VFSNotebookRepo implements NotebookRepo {
   }
 
   @Override
-  public List<NoteInfo> list() throws IOException {
+  public List<NoteInfo> list(AuthenticationInfo subject) throws IOException {
     FileObject rootDir = getRootDir();
 
     FileObject[] children = rootDir.getChildren();
@@ -129,7 +140,7 @@ public class VFSNotebookRepo implements NotebookRepo {
         if (info != null) {
           infos.add(info);
         }
-      } catch (IOException e) {
+      } catch (Exception e) {
         logger.error("Can't read note " + f.getName().toString(), e);
       }
     }
@@ -149,7 +160,8 @@ public class VFSNotebookRepo implements NotebookRepo {
 
     GsonBuilder gsonBuilder = new GsonBuilder();
     gsonBuilder.setPrettyPrinting();
-    Gson gson = gsonBuilder.create();
+    Gson gson = gsonBuilder.registerTypeAdapter(Date.class, new NotebookImportDeserializer())
+        .create();
 
     FileContent content = noteJson.getContent();
     InputStream ins = content.getInputStream();
@@ -164,6 +176,15 @@ public class VFSNotebookRepo implements NotebookRepo {
       if (p.getStatus() == Status.PENDING || p.getStatus() == Status.RUNNING) {
         p.setStatus(Status.ABORT);
       }
+
+      List<ApplicationState> appStates = p.getAllApplicationStates();
+      if (appStates != null) {
+        for (ApplicationState app : appStates) {
+          if (app.getStatus() != ApplicationState.Status.ERROR) {
+            app.setStatus(ApplicationState.Status.UNLOADED);
+          }
+        }
+      }
     }
 
     return note;
@@ -175,14 +196,14 @@ public class VFSNotebookRepo implements NotebookRepo {
   }
 
   @Override
-  public Note get(String noteId) throws IOException {
+  public Note get(String noteId, AuthenticationInfo subject) throws IOException {
     FileObject rootDir = fsManager.resolveFile(getPath("/"));
     FileObject noteDir = rootDir.resolveFile(noteId, NameScope.CHILD);
 
     return getNote(noteDir);
   }
 
-  private FileObject getRootDir() throws IOException {
+  protected FileObject getRootDir() throws IOException {
     FileObject rootDir = fsManager.resolveFile(getPath("/"));
 
     if (!rootDir.exists()) {
@@ -197,7 +218,7 @@ public class VFSNotebookRepo implements NotebookRepo {
   }
 
   @Override
-  public void save(Note note) throws IOException {
+  public synchronized void save(Note note, AuthenticationInfo subject) throws IOException {
     GsonBuilder gsonBuilder = new GsonBuilder();
     gsonBuilder.setPrettyPrinting();
     Gson gson = gsonBuilder.create();
@@ -214,15 +235,16 @@ public class VFSNotebookRepo implements NotebookRepo {
       throw new IOException(noteDir.getName().toString() + " is not a directory");
     }
 
-    FileObject noteJson = noteDir.resolveFile("note.json", NameScope.CHILD);
+    FileObject noteJson = noteDir.resolveFile(".note.json", NameScope.CHILD);
     // false means not appending. creates file if not exists
     OutputStream out = noteJson.getContent().getOutputStream(false);
     out.write(json.getBytes(conf.getString(ConfVars.ZEPPELIN_ENCODING)));
     out.close();
+    noteJson.moveTo(noteDir.resolveFile("note.json", NameScope.CHILD));
   }
 
   @Override
-  public void remove(String noteId) throws IOException {
+  public void remove(String noteId, AuthenticationInfo subject) throws IOException {
     FileObject rootDir = fsManager.resolveFile(getPath("/"));
     FileObject noteDir = rootDir.resolveFile(noteId, NameScope.CHILD);
 
@@ -238,4 +260,29 @@ public class VFSNotebookRepo implements NotebookRepo {
 
     noteDir.delete(Selectors.SELECT_SELF_AND_CHILDREN);
   }
+
+  @Override
+  public void close() {
+    //no-op    
+  }
+
+  @Override
+  public Revision checkpoint(String noteId, String checkpointMsg, AuthenticationInfo subject)
+      throws IOException {
+    // Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public Note get(String noteId, Revision rev, AuthenticationInfo subject) throws IOException {
+    // Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public List<Revision> revisionHistory(String noteId, AuthenticationInfo subject) {
+    // Auto-generated method stub
+    return null;
+  }
+
 }

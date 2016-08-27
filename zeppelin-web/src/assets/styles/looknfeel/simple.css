@@ -23,7 +23,7 @@ body {
 
 .box:hover,
 .well:hover {
-  background-color: #ffffff;
+  background: #ffffff;
   border: 1px solid #DDDDDD;
 }
 
@@ -40,18 +40,48 @@ body {
 }
 
 .paragraph-space {
-  padding: 0px 2px 0px 2px !important;
+  padding: 0 2px 0 2px !important;
 }
 
 .paragraph .control {
   visibility: hidden;
-  top: 7px !important;
+  top: 5px !important;
   right: 10px !important;
 }
 
 .paragraph:hover .control {
   visibility: visible;
 }
+
+.paragraph .paragraphFooter {
+  visibility: hidden;
+  position: relative;
+  top : -9px;
+  z-index: 99;
+}
+
+.paragraph .paragraphFooterElapsed {
+  height: 0px;
+  float: right;
+  z-index: 99;
+}
+
+.paragraph .executionTime {
+  font-size: 8px;
+  text-align: right;
+  margin-right: 5px;
+}
+
+.paragraph .elapsedTime {
+  font-size: 8px;
+  text-align: right;
+  margin-right: 5px;
+}
+
+.paragraph:hover .paragraphFooter {
+  visibility: visible;
+}
+
 
 .noteAction span,
 .noteAction button,
@@ -69,4 +99,8 @@ body {
 .executionTime,
 .nv-controlsWrap {
   display: block;
+}
+
+.ng-toast.ng-toast--top {
+  top: 100px;
 }

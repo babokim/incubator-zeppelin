@@ -25,6 +25,7 @@ import java.util.Properties;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 
@@ -35,17 +36,45 @@ public class MockInterpreter2 extends Interpreter{
 		super(property);
 	}
 
+	boolean open;
+
 	@Override
 	public void open() {
+		open = true;
 	}
 
 	@Override
 	public void close() {
+		open = false;
 	}
+
+	public boolean isOpen() {
+		return open;
+	}
+
 
 	@Override
 	public InterpreterResult interpret(String st, InterpreterContext context) {
-		return new InterpreterResult(InterpreterResult.Code.SUCCESS, "repl2: "+st);
+		InterpreterResult result;
+
+		if ("getId".equals(st)) {
+			// get unique id of this interpreter instance
+			result = new InterpreterResult(InterpreterResult.Code.SUCCESS, "" + this.hashCode());
+		} else if (st.startsWith("sleep")) {
+			try {
+				Thread.sleep(Integer.parseInt(st.split(" ")[1]));
+			} catch (InterruptedException e) {
+				// nothing to do
+			}
+			result = new InterpreterResult(InterpreterResult.Code.SUCCESS, "repl2: " + st);
+		} else {
+			result = new InterpreterResult(InterpreterResult.Code.SUCCESS, "repl2: " + st);
+		}
+
+		if (context.getResourcePool() != null) {
+			context.getResourcePool().put(context.getNoteId(), context.getParagraphId(), "result", result);
+		}
+		return result;
 	}
 
 	@Override
@@ -68,7 +97,7 @@ public class MockInterpreter2 extends Interpreter{
 	}
 
 	@Override
-	public List<String> completion(String buf, int cursor) {
+	public List<InterpreterCompletion> completion(String buf, int cursor) {
 		return null;
 	}
 }

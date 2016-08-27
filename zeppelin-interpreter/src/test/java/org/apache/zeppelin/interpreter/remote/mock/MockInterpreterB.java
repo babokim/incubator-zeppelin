@@ -28,6 +28,7 @@ import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.WrappedInterpreter;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 
 public class MockInterpreterB extends Interpreter {
@@ -85,19 +86,36 @@ public class MockInterpreterB extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
 
   public MockInterpreterA getInterpreterA() {
     InterpreterGroup interpreterGroup = getInterpreterGroup();
-    for (Interpreter intp : interpreterGroup) {
-      if (intp.getClassName().equals(MockInterpreterA.class.getName())) {
-        Interpreter p = intp;
-        while (p instanceof WrappedInterpreter) {
-          p = ((WrappedInterpreter) p).getInnerInterpreter();
+    synchronized (interpreterGroup) {
+      for (List<Interpreter> interpreters : interpreterGroup.values()) {
+        boolean belongsToSameNoteGroup = false;
+        MockInterpreterA a = null;
+        for (Interpreter intp : interpreters) {
+          if (intp.getClassName().equals(MockInterpreterA.class.getName())) {
+            Interpreter p = intp;
+            while (p instanceof WrappedInterpreter) {
+              p = ((WrappedInterpreter) p).getInnerInterpreter();
+            }
+            a = (MockInterpreterA) p;
+          }
+
+          Interpreter p = intp;
+          while (p instanceof WrappedInterpreter) {
+            p = ((WrappedInterpreter) p).getInnerInterpreter();
+          }
+          if (this == p) {
+            belongsToSameNoteGroup = true;
+          }
         }
-        return (MockInterpreterA) p;
+        if (belongsToSameNoteGroup) {
+          return a;
+        }
       }
     }
     return null;
@@ -105,13 +123,10 @@ public class MockInterpreterB extends Interpreter {
 
   @Override
   public Scheduler getScheduler() {
-    InterpreterGroup interpreterGroup = getInterpreterGroup();
-    for (Interpreter intp : interpreterGroup) {
-      if (intp.getClassName().equals(MockInterpreterA.class.getName())) {
-        return intp.getScheduler();
-      }
+    MockInterpreterA intpA = getInterpreterA();
+    if (intpA != null) {
+      return intpA.getScheduler();
     }
-
     return null;
   }
 

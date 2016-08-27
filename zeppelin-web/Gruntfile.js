@@ -24,7 +24,7 @@
 // use this if you want to recursively match all subfolders:
 // 'test/spec/**/*.js'
 
-module.exports = function (grunt) {
+module.exports = function(grunt) {
 
   // Load grunt tasks automatically
   require('load-grunt-tasks')(grunt);
@@ -56,6 +56,77 @@ module.exports = function (grunt) {
       }
     },
 
+    htmlhint: {
+      options: {
+        'tagname-lowercase': true,
+        'attr-lowercase': true,
+        'space-tab-mixed-disabled': 'space',
+        'tag-pair': true,
+        'tag-self-close': true,
+        'attr-no-duplication': true
+      },
+      src: ['src/**/*.html']
+    },
+
+    cacheBust: {
+      taskName: {
+        options: {
+          baseDir: '<%= yeoman.dist %>',
+          assets: ['scripts/**.js', 'styles/**.css'],
+          deleteOriginals: true
+        },
+        src: ['<%= yeoman.dist %>/index.html']
+      }
+    },
+
+    'goog-webfont-dl': {
+      patuaOne: {
+        options: {
+          ttf: true,
+          eot: true,
+          woff: true,
+          woff2: true,
+          svg: true,
+          fontname: 'Patua One',
+          fontstyles: '400',
+          fontdest: '<%= yeoman.app %>/fonts/',
+          cssdest: '<%= yeoman.app %>/fonts/Patua-One.css',
+          cssprefix: '',
+          subset: ''
+        }
+      },
+      sourceCodePro: {
+        options: {
+          ttf: true,
+          eot: true,
+          woff: true,
+          woff2: true,
+          svg: true,
+          fontname: 'Source Code Pro',
+          fontstyles: '300, 400, 500',
+          fontdest: '<%= yeoman.app %>/fonts/',
+          cssdest: '<%= yeoman.app %>/fonts/Source-Code-Pro.css',
+          cssprefix: '',
+          subset: ''
+        }
+      },
+      roboto: {
+        options: {
+          ttf: true,
+          eot: true,
+          woff: true,
+          woff2: true,
+          svg: true,
+          fontname: 'Roboto',
+          fontstyles: '300, 400, 500',
+          fontdest: '<%= yeoman.app %>/fonts/',
+          cssdest: '<%= yeoman.app %>/fonts/Roboto.css',
+          cssprefix: '',
+          subset: ''
+        }
+      }
+    },
+
     // Watches files for changes and runs tasks based on the changed files
     watch: {
       bower: {
@@ -67,14 +138,20 @@ module.exports = function (grunt) {
           '<%= yeoman.app %>/app/**/*.js',
           '<%= yeoman.app %>/components/**/*.js'
         ],
-        tasks: ['newer:jshint:all'],
+        tasks: ['newer:eslint:all', 'newer:jscs:all'],
         options: {
           livereload: '<%= connect.options.livereload %>'
         }
       },
+      html: {
+        files: [
+          '<%= yeoman.app %>/**/*.html'
+        ],
+        tasks: ['newer:htmlhint']
+      },
       jsTest: {
         files: ['test/spec/{,*/}*.js'],
-        tasks: ['newer:jshint:test', 'karma']
+        tasks: ['newer:eslint:test', 'newer:jscs:test', 'karma']
       },
       styles: {
         files: [
@@ -83,7 +160,7 @@ module.exports = function (grunt) {
           '<%= yeoman.app %>/assets/styles/**/*.css',
           '<%= yeoman.app %>/fonts/**/*.css'
         ],
-        tasks: ['newer:copy:styles', 'autoprefixer']
+        tasks: ['newer:copy:styles', 'postcss']
       },
       gruntfile: {
         files: ['Gruntfile.js']
@@ -113,7 +190,7 @@ module.exports = function (grunt) {
       livereload: {
         options: {
           open: true,
-          middleware: function (connect) {
+          middleware: function(connect) {
             return [
               connect.static('.tmp'),
               connect().use(
@@ -128,7 +205,7 @@ module.exports = function (grunt) {
       test: {
         options: {
           port: 9001,
-          middleware: function (connect) {
+          middleware: function(connect) {
             return [
               connect.static('.tmp'),
               connect.static('test'),
@@ -149,11 +226,12 @@ module.exports = function (grunt) {
       }
     },
 
-    // Make sure code styles are up to par and there are no obvious mistakes
-    jshint: {
+    jscs: {
       options: {
-        jshintrc: '.jshintrc',
-        reporter: require('jshint-stylish')
+        config: '.jscsrc',
+        esnext: true, // If you use ES6 http://jscs.info/overview.html#esnext
+        verbose: true, // If you need output with rule names http://jscs.info/overview.html#verbose
+        requireCurlyBraces: ['if']
       },
       all: {
         src: [
@@ -163,8 +241,23 @@ module.exports = function (grunt) {
         ]
       },
       test: {
+        src: ['test/spec/{,*/}*.js']
+      }
+    },
+
+    eslint: {
+      all: {
+        src: [
+          'Gruntfile.js',
+          '<%= yeoman.app %>/app/**/*.js',
+          '<%= yeoman.app %>/components/**/*.js'
+        ]
+      },
+      test: {
         options: {
-          jshintrc: 'test/.jshintrc'
+          rules: {
+            'no-undef': 0
+          }
         },
         src: ['test/spec/{,*/}*.js']
       }
@@ -186,9 +279,12 @@ module.exports = function (grunt) {
     },
 
     // Add vendor prefixed styles
-    autoprefixer: {
+    postcss: {
       options: {
-        browsers: ['last 1 version']
+        map: true,
+        processors: [
+          require('autoprefixer')({browsers: ['last 2 versions']})
+        ]
       },
       dist: {
         files: [{
@@ -202,27 +298,26 @@ module.exports = function (grunt) {
 
     // Automatically inject Bower components into the app
     wiredep: {
-      options: {
-      },
+      options: {},
       app: {
         src: ['<%= yeoman.app %>/index.html'],
-        ignorePath:  /\.\.\//
+        ignorePath: /\.\.\//
       },
       test: {
         devDependencies: true,
         src: '<%= karma.unit.configFile %>',
-        ignorePath:  /\.\.\//,
-        fileTypes:{
+        ignorePath: /\.\.\//,
+        fileTypes: {
           js: {
             block: /(([\s\t]*)\/{2}\s*?bower:\s*?(\S*))(\n|\r|.)*?(\/{2}\s*endbower)/gi,
-              detect: {
-                js: /'(.*\.js)'/gi
-              },
-              replace: {
-                js: '\'{{filePath}}\','
-              }
+            detect: {
+              js: /'(.*\.js)'/gi
+            },
+            replace: {
+              js: '\'{{filePath}}\','
             }
           }
+        }
       }
     },
 
@@ -250,7 +345,7 @@ module.exports = function (grunt) {
       html: ['<%= yeoman.dist %>/{,*/}*.html'],
       css: ['<%= yeoman.dist %>/styles/*.css'],
       options: {
-        assetsDirs: ['<%= yeoman.dist %>','<%= yeoman.dist %>/assets']
+        assetsDirs: ['<%= yeoman.dist %>', '<%= yeoman.dist %>/assets']
       }
     },
 
@@ -342,15 +437,20 @@ module.exports = function (grunt) {
           ]
         }, {
           // copy fonts
-          expand : true,
+          expand: true,
           cwd: '<%= yeoman.app %>',
           dest: '<%= yeoman.dist %>',
           src: ['fonts/**/*.{eot,svg,ttf,woff}']
         }, {
-          expand : true,
+          expand: true,
           cwd: '<%= yeoman.app %>',
           dest: '<%= yeoman.dist %>',
           src: ['app/**/*.html', 'components/**/*.html']
+        }, {
+          expand: true,
+          cwd: 'bower_components/datatables/media/images',
+          src: '{,*/}*.{png,jpg,jpeg,gif}',
+          dest: '<%= yeoman.dist %>/images'
         }, {
           expand: true,
           cwd: '.tmp/images',
@@ -400,8 +500,7 @@ module.exports = function (grunt) {
     }
   });
 
-
-  grunt.registerTask('serve', 'Compile then start a connect web server', function (target) {
+  grunt.registerTask('serve', 'Compile then start a connect web server', function(target) {
     if (target === 'dist') {
       return grunt.task.run(['build', 'connect:dist:keepalive']);
     }
@@ -410,13 +509,13 @@ module.exports = function (grunt) {
       'clean:server',
       'wiredep',
       'concurrent:server',
-      'autoprefixer',
+      'postcss',
       'connect:livereload',
       'watch'
     ]);
   });
 
-  grunt.registerTask('server', 'DEPRECATED TASK. Use the "serve" task instead', function (target) {
+  grunt.registerTask('server', 'DEPRECATED TASK. Use the "serve" task instead', function(target) {
     grunt.log.warn('The `server` task has been deprecated. Use `grunt serve` to start a server.');
     grunt.task.run(['serve:' + target]);
   });
@@ -425,49 +524,33 @@ module.exports = function (grunt) {
     'clean:server',
     'wiredep',
     'concurrent:test',
-    'autoprefixer',
+    'postcss',
     'connect:test',
     'karma'
   ]);
 
   grunt.registerTask('build', [
-    'test',
+    'jscs',
+    'eslint',
+    'htmlhint',
     'clean:dist',
     'wiredep',
+    'goog-webfont-dl',
     'useminPrepare',
     'concurrent:dist',
-    'autoprefixer',
+    'postcss',
     'concat',
     'ngAnnotate',
     'copy:dist',
     'cssmin',
     'uglify',
     'usemin',
-    'htmlmin'
-  ]);
-
-  grunt.registerTask('buildSkipTests', [
-    'clean:dist',
-    'wiredep',
-    'useminPrepare',
-    'concurrent:dist',
-    'autoprefixer',
-    'concat',
-    'ngAnnotate',
-    'copy:dist',
-    'cssmin',
-    'uglify',
-    'usemin',
-    'htmlmin'
+    'htmlmin',
+    'cacheBust'
   ]);
 
   grunt.registerTask('default', [
-    'newer:jshint',
-    /*
-     * Since we dont have test (or up to date) there is no reason to keep this task
-     * I am commented this, but can be changed in the future (if someone want to implement front tests).
-    'test',
-    */
-    'build'
+    'build',
+    'test'
   ]);
 };

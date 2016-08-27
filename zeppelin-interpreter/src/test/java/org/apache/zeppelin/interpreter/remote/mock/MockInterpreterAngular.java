@@ -28,6 +28,7 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 
 public class MockInterpreterAngular extends Interpreter {
   static {
@@ -71,8 +72,9 @@ public class MockInterpreterAngular extends Interpreter {
     AngularObjectRegistry registry = context.getAngularObjectRegistry();
 
     if (cmd.equals("add")) {
-      registry.add(name, value, context.getNoteId());
-      registry.get(name, context.getNoteId()).addWatcher(new AngularObjectWatcher(null) {
+      registry.add(name, value, context.getNoteId(), null);
+      registry.get(name, context.getNoteId(), null).addWatcher(new AngularObjectWatcher
+              (null) {
 
         @Override
         public void watch(Object oldObject, Object newObject,
@@ -82,17 +84,19 @@ public class MockInterpreterAngular extends Interpreter {
 
       });
     } else if (cmd.equalsIgnoreCase("update")) {
-      registry.get(name, context.getNoteId()).set(value);
+      registry.get(name, context.getNoteId(), null).set(value);
     } else if (cmd.equals("remove")) {
-      registry.remove(name, context.getNoteId());
+      registry.remove(name, context.getNoteId(), null);
     }
 
     try {
       Thread.sleep(500); // wait for watcher executed
     } catch (InterruptedException e) {
+      logger.error("Exception in MockInterpreterAngular while interpret Thread.sleep", e);
     }
 
-    String msg = registry.getAll(context.getNoteId()).size() + " " + Integer.toString(numWatch.get());
+    String msg = registry.getAll(context.getNoteId(), null).size() + " " + Integer.toString(numWatch
+            .get());
     return new InterpreterResult(Code.SUCCESS, msg);
   }
 
@@ -111,7 +115,7 @@ public class MockInterpreterAngular extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
 }

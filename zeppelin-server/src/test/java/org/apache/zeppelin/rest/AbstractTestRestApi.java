@@ -22,15 +22,22 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Properties;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethodBase;
-import org.apache.commons.httpclient.methods.*;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterOption;
+import org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
+import org.apache.commons.httpclient.methods.DeleteMethod;
+import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.RequestEntity;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.server.ZeppelinServer;
 import org.hamcrest.Description;
@@ -49,8 +56,9 @@ public abstract class AbstractTestRestApi {
 
   static final String restApiUrl = "/api";
   static final String url = getUrlToTest();
-  protected static final boolean wasRunning = checkIfServerIsRuning();
+  protected static final boolean wasRunning = checkIfServerIsRunning();
   static boolean pySpark = false;
+  static boolean sparkR = false;
 
   private String getUrl(String path) {
     String url;
@@ -80,7 +88,7 @@ public abstract class AbstractTestRestApi {
       try {
         ZeppelinServer.main(new String[] {""});
       } catch (Exception e) {
-        e.printStackTrace();
+        LOG.error("Exception in WebDriverManager while getWebDriver ", e);
         throw new RuntimeException(e);
       }
     }
@@ -88,14 +96,40 @@ public abstract class AbstractTestRestApi {
 
   protected static void startUp() throws Exception {
     if (!wasRunning) {
+      System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_HOME.getVarName(), "../");
+      System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_WAR.getVarName(), "../zeppelin-web/dist");
       LOG.info("Staring test Zeppelin up...");
+
+
+      // exclude org.apache.zeppelin.rinterpreter.* for scala 2.11 test
+      ZeppelinConfiguration conf = ZeppelinConfiguration.create();
+      String interpreters = conf.getString(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS);
+      String interpretersCompatibleWithScala211Test = null;
+
+      for (String intp : interpreters.split(",")) {
+        if (intp.startsWith("org.apache.zeppelin.rinterpreter")) {
+          continue;
+        }
+
+        if (interpretersCompatibleWithScala211Test == null) {
+          interpretersCompatibleWithScala211Test = intp;
+        } else {
+          interpretersCompatibleWithScala211Test += "," + intp;
+        }
+      }
+
+      System.setProperty(
+          ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS.getVarName(),
+          interpretersCompatibleWithScala211Test);
+
+
       executor = Executors.newSingleThreadExecutor();
       executor.submit(server);
       long s = System.currentTimeMillis();
       boolean started = false;
       while (System.currentTimeMillis() - s < 1000 * 60 * 3) {  // 3 minutes
         Thread.sleep(2000);
-        started = checkIfServerIsRuning();
+        started = checkIfServerIsRunning();
         if (started == true) {
           break;
         }
@@ -112,36 +146,40 @@ public abstract class AbstractTestRestApi {
         // assume first one is spark
         InterpreterSetting sparkIntpSetting = null;
         for(InterpreterSetting intpSetting : ZeppelinServer.notebook.getInterpreterFactory().get()) {
-          if (intpSetting.getGroup().equals("spark")) {
+          if (intpSetting.getName().equals("spark")) {
             sparkIntpSetting = intpSetting;
           }
         }
 
-        // set spark master
+        // set spark master and other properties
         sparkIntpSetting.getProperties().setProperty("master", "spark://" + getHostname() + ":7071");
+        sparkIntpSetting.getProperties().setProperty("spark.cores.max", "2");
 
         // set spark home for pyspark
         sparkIntpSetting.getProperties().setProperty("spark.home", getSparkHome());
         pySpark = true;
-
-        ZeppelinServer.notebook.getInterpreterFactory().restart(sparkIntpSetting.id());
+        sparkR = true;
+        ZeppelinServer.notebook.getInterpreterFactory().restart(sparkIntpSetting.getId());
       } else {
         // assume first one is spark
         InterpreterSetting sparkIntpSetting = null;
         for(InterpreterSetting intpSetting : ZeppelinServer.notebook.getInterpreterFactory().get()) {
-          if (intpSetting.getGroup().equals("spark")) {
+          if (intpSetting.getName().equals("spark")) {
             sparkIntpSetting = intpSetting;
           }
         }
 
         String sparkHome = getSparkHome();
         if (sparkHome != null) {
+          sparkIntpSetting.getProperties().setProperty("master", "spark://" + getHostname() + ":7071");
+          sparkIntpSetting.getProperties().setProperty("spark.cores.max", "2");
           // set spark home for pyspark
           sparkIntpSetting.getProperties().setProperty("spark.home", sparkHome);
           pySpark = true;
+          sparkR = true;
         }
 
-        ZeppelinServer.notebook.getInterpreterFactory().restart(sparkIntpSetting.id());
+        ZeppelinServer.notebook.getInterpreterFactory().restart(sparkIntpSetting.getId());
       }
     }
   }
@@ -150,19 +188,23 @@ public abstract class AbstractTestRestApi {
     try {
       return InetAddress.getLocalHost().getHostName();
     } catch (UnknownHostException e) {
-      e.printStackTrace();
+      LOG.error("Exception in WebDriverManager while getWebDriver ", e);
       return "localhost";
     }
   }
 
   private static String getSparkHome() {
-    String sparkHome = getSparkHomeRecursively(new File(System.getProperty("user.dir")));
+    String sparkHome = getSparkHomeRecursively(new File(System.getProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_HOME.getVarName())));
     System.out.println("SPARK HOME detected " + sparkHome);
     return sparkHome;
   }
 
   boolean isPyspark() {
     return pySpark;
+  }
+
+  boolean isSparkR() {
+    return sparkR;
   }
 
   private static String getSparkHomeRecursively(File dir) {
@@ -186,7 +228,7 @@ public abstract class AbstractTestRestApi {
   }
 
   private static boolean isActiveSparkHome(File dir) {
-    if (dir.getName().matches("spark-[0-9\\.]+-bin-hadoop[0-9\\.]+")) {
+    if (dir.getName().matches("spark-[0-9\\.]+[A-Za-z-]*-bin-hadoop[0-9\\.]+")) {
       File pidDir = new File(dir, "run");
       if (pidDir.isDirectory() && pidDir.listFiles().length > 0) {
         return true;
@@ -197,15 +239,22 @@ public abstract class AbstractTestRestApi {
 
   protected static void shutDown() throws Exception {
     if (!wasRunning) {
+      // restart interpreter to stop all interpreter processes
+      List<String> settingList = ZeppelinServer.notebook.getInterpreterFactory()
+          .getDefaultInterpreterSettingList();
+      for (String setting : settingList) {
+        ZeppelinServer.notebook.getInterpreterFactory().restart(setting);
+      }
+
       LOG.info("Terminating test Zeppelin...");
-      ZeppelinServer.jettyServer.stop();
+      ZeppelinServer.jettyWebServer.stop();
       executor.shutdown();
 
       long s = System.currentTimeMillis();
       boolean started = true;
       while (System.currentTimeMillis() - s < 1000 * 60 * 3) {  // 3 minutes
         Thread.sleep(2000);
-        started = checkIfServerIsRuning();
+        started = checkIfServerIsRunning();
         if (started == false) {
           break;
         }
@@ -215,16 +264,19 @@ public abstract class AbstractTestRestApi {
       }
 
       LOG.info("Test Zeppelin terminated.");
+
+      System.clearProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS.getVarName());
     }
   }
 
-  protected static boolean checkIfServerIsRuning() {
+  protected static boolean checkIfServerIsRunning() {
     GetMethod request = null;
     boolean isRunning = true;
     try {
       request = httpGet("/");
       isRunning = request.getStatusCode() == 200;
     } catch (IOException e) {
+      LOG.error("AbstractTestRestApi.checkIfServerIsRunning() fails .. ZeppelinServer is not running");
       isRunning = false;
     } finally {
       if (request != null) {
@@ -330,6 +382,7 @@ public abstract class AbstractTestRestApi {
         try {
           new JsonParser().parse(body);
         } catch (JsonParseException e) {
+          LOG.error("Exception in AbstractTestRestApi while matchesSafely ", e);
           isValid = false;
         }
         return isValid;
@@ -345,14 +398,6 @@ public abstract class AbstractTestRestApi {
         description.appendText("got ").appendText(item);
       }
     };
-  }
-
-  //Create new Setting and return Setting ID
-  protected String createTempSetting(String tempName) throws IOException {
-
-    InterpreterGroup interpreterGroup =  ZeppelinServer.notebook.getInterpreterFactory().add(tempName,"newGroup",
-        new InterpreterOption(false),new Properties());
-    return interpreterGroup.getId();
   }
 
   protected TypeSafeMatcher<? super JsonElement> hasRootElementNamed(final String memberName) {
@@ -375,6 +420,22 @@ public abstract class AbstractTestRestApi {
     };
   }
 
+
+  public static void ps() {
+    DefaultExecutor executor = new DefaultExecutor();
+    executor.setStreamHandler(new PumpStreamHandler(System.out, System.err));
+
+    CommandLine cmd = CommandLine.parse("ps");
+    cmd.addArgument("aux", false);
+
+    try {
+      executor.execute(cmd);
+    } catch (IOException e) {
+      LOG.error(e.getMessage(), e);
+    }
+  }
+
+
   /** Status code matcher */
   protected Matcher<? super HttpMethodBase> isForbiden() { return responsesWith(403); }
 
@@ -383,6 +444,10 @@ public abstract class AbstractTestRestApi {
   }
 
   protected Matcher<? super HttpMethodBase> isCreated() { return responsesWith(201); }
+
+  protected Matcher<? super HttpMethodBase> isBadRequest() { return responsesWith(400); }
+
+  protected Matcher<? super HttpMethodBase> isNotFound() { return responsesWith(404); }
 
   protected Matcher<? super HttpMethodBase> isNotAllowed() {
     return responsesWith(405);

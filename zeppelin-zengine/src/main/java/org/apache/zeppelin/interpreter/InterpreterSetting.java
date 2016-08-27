@@ -17,77 +17,149 @@
 
 package org.apache.zeppelin.interpreter;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Random;
 
-import org.apache.zeppelin.notebook.utility.IdHashes;
+import com.google.gson.annotations.SerializedName;
+
+import org.apache.zeppelin.dep.Dependency;
+
+import static org.apache.zeppelin.notebook.utility.IdHashes.generateId;
 
 /**
  * Interpreter settings
  */
 public class InterpreterSetting {
+  private static final String SHARED_PROCESS = "shared_process";
   private String id;
   private String name;
-  private String group;
-  private String description;
+  private String group; // always be null in case of InterpreterSettingRef
   private Properties properties;
-  private InterpreterGroup interpreterGroup;
-  private InterpreterOption option;
+  private Status status;
+  private String errorReason;
 
-  public InterpreterSetting(String id, String name,
-      String group,
-      InterpreterOption option) {
+  @SerializedName("interpreterGroup") private List<InterpreterInfo> interpreterInfos;
+  private final transient Map<String, InterpreterGroup> interpreterGroupRef = new HashMap<>();
+  private List<Dependency> dependencies;
+  private InterpreterOption option;
+  private transient String path;
+
+  @Deprecated private transient InterpreterGroupFactory interpreterGroupFactory;
+
+  public InterpreterSetting() {
+
+  }
+
+  public InterpreterSetting(String id, String name, String group,
+      List<InterpreterInfo> interpreterInfos, Properties properties, List<Dependency> dependencies,
+      InterpreterOption option, String path) {
     this.id = id;
     this.name = name;
     this.group = group;
+    this.interpreterInfos = interpreterInfos;
+    this.properties = properties;
+    this.dependencies = dependencies;
     this.option = option;
+    this.path = path;
+    this.status = Status.READY;
   }
 
-  public InterpreterSetting(String name,
-      String group,
-      InterpreterOption option) {
-    this(generateId(), name, group, option);
+  public InterpreterSetting(String name, String group, List<InterpreterInfo> interpreterInfos,
+      Properties properties, List<Dependency> dependencies, InterpreterOption option, String path) {
+    this(generateId(), name, group, interpreterInfos, properties, dependencies, option, path);
   }
 
-  public String id() {
+  /**
+   * Create interpreter from interpreterSettingRef
+   *
+   * @param o interpreterSetting from interpreterSettingRef
+   */
+  public InterpreterSetting(InterpreterSetting o) {
+    this(generateId(), o.getName(), o.getGroup(), o.getInterpreterInfos(), o.getProperties(),
+        o.getDependencies(), o.getOption(), o.getPath());
+  }
+
+  public String getId() {
     return id;
-  }
-
-  private static String generateId() {
-    return IdHashes.encode(System.currentTimeMillis() + new Random().nextInt());
   }
 
   public String getName() {
     return name;
   }
 
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public void setDescription(String desc) {
-    this.description = desc;
-  }
-
-  public String getGroup() {
+  String getGroup() {
     return group;
   }
 
-  public InterpreterGroup getInterpreterGroup() {
-    return interpreterGroup;
+  private String getInterpreterProcessKey(String noteId) {
+    if (getOption().isExistingProcess) {
+      return Constants.EXISTING_PROCESS;
+    } else if (getOption().isPerNoteProcess()) {
+      return noteId;
+    } else {
+      return SHARED_PROCESS;
+    }
   }
 
-  public void setInterpreterGroup(InterpreterGroup interpreterGroup) {
-    this.interpreterGroup = interpreterGroup;
-    this.properties = interpreterGroup.getProperty();
+  public InterpreterGroup getInterpreterGroup(String noteId) {
+    String key = getInterpreterProcessKey(noteId);
+    synchronized (interpreterGroupRef) {
+      if (!interpreterGroupRef.containsKey(key)) {
+        String interpreterGroupId = getId() + ":" + key;
+        InterpreterGroup intpGroup =
+            interpreterGroupFactory.createInterpreterGroup(interpreterGroupId, getOption());
+        interpreterGroupRef.put(key, intpGroup);
+      }
+      return interpreterGroupRef.get(key);
+    }
+  }
+
+  public Collection<InterpreterGroup> getAllInterpreterGroups() {
+    synchronized (interpreterGroupRef) {
+      return new LinkedList<>(interpreterGroupRef.values());
+    }
+  }
+
+  void closeAndRemoveInterpreterGroup(String noteId) {
+    String key = getInterpreterProcessKey(noteId);
+    InterpreterGroup groupToRemove;
+    synchronized (interpreterGroupRef) {
+      groupToRemove = interpreterGroupRef.remove(key);
+    }
+
+    if (groupToRemove != null) {
+      groupToRemove.close();
+      groupToRemove.destroy();
+    }
+  }
+
+  void closeAndRmoveAllInterpreterGroups() {
+    synchronized (interpreterGroupRef) {
+      HashSet<String> groupsToRemove = new HashSet<>(interpreterGroupRef.keySet());
+      for (String key : groupsToRemove) {
+        closeAndRemoveInterpreterGroup(key);
+      }
+    }
   }
 
   public Properties getProperties() {
     return properties;
+  }
+
+  public List<Dependency> getDependencies() {
+    if (dependencies == null) {
+      return new LinkedList<>();
+    }
+    return dependencies;
+  }
+
+  public void setDependencies(List<Dependency> dependencies) {
+    this.dependencies = dependencies;
   }
 
   public InterpreterOption getOption() {
@@ -100,5 +172,74 @@ public class InterpreterSetting {
 
   public void setOption(InterpreterOption option) {
     this.option = option;
+  }
+
+  public String getPath() {
+    return path;
+  }
+
+  public void setPath(String path) {
+    this.path = path;
+  }
+
+  public List<InterpreterInfo> getInterpreterInfos() {
+    return interpreterInfos;
+  }
+
+  void setInterpreterGroupFactory(InterpreterGroupFactory interpreterGroupFactory) {
+    this.interpreterGroupFactory = interpreterGroupFactory;
+  }
+
+  void appendDependencies(List<Dependency> dependencies) {
+    for (Dependency dependency : dependencies) {
+      if (!this.dependencies.contains(dependency)) {
+        this.dependencies.add(dependency);
+      }
+    }
+  }
+
+  void setInterpreterOption(InterpreterOption interpreterOption) {
+    this.option = interpreterOption;
+  }
+
+  void updateProperties(Properties p) {
+    this.properties.putAll(p);
+  }
+
+  void setProperties(Properties p) {
+    this.properties = p;
+  }
+
+  void setGroup(String group) {
+    this.group = group;
+  }
+
+  void setName(String name) {
+    this.name = name;
+  }
+
+  /***
+   * Interpreter status
+   */
+  public enum Status {
+    DOWNLOADING_DEPENDENCIES,
+    ERROR,
+    READY
+  }
+
+  public Status getStatus() {
+    return status;
+  }
+
+  public void setStatus(Status status) {
+    this.status = status;
+  }
+
+  public String getErrorReason() {
+    return errorReason;
+  }
+
+  public void setErrorReason(String errorReason) {
+    this.errorReason = errorReason;
   }
 }

@@ -25,11 +25,9 @@ import java.util.LinkedList;
 import java.util.Properties;
 
 import org.apache.zeppelin.display.AngularObjectRegistry;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.display.GUI;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterContextRunner;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.junit.After;
 import org.junit.Before;
@@ -41,6 +39,13 @@ public class DepInterpreterTest {
   private File tmpDir;
   private SparkInterpreter repl;
 
+  private Properties getTestProperties() {
+    Properties p = new Properties();
+    p.setProperty("zeppelin.dep.localrepo", "local-repo");
+    p.setProperty("zeppelin.dep.additionalRemoteRepository", "spark-packages,http://dl.bintray.com/spark-packages/maven,false;");
+    return p;
+  }
+
   @Before
   public void setUp() throws Exception {
     tmpDir = new File(System.getProperty("java.io.tmpdir") + "/ZeppelinLTest_" + System.currentTimeMillis());
@@ -48,19 +53,22 @@ public class DepInterpreterTest {
 
     tmpDir.mkdirs();
 
-    Properties p = new Properties();
+    Properties p = getTestProperties();
 
     dep = new DepInterpreter(p);
     dep.open();
 
     InterpreterGroup intpGroup = new InterpreterGroup();
-    intpGroup.add(new SparkInterpreter(p));
-    intpGroup.add(dep);
+    intpGroup.put("note", new LinkedList<Interpreter>());
+    intpGroup.get("note").add(new SparkInterpreter(p));
+    intpGroup.get("note").add(dep);
     dep.setInterpreterGroup(intpGroup);
 
-    context = new InterpreterContext("note", "id", "title", "text", new HashMap<String, Object>(), new GUI(),
+    context = new InterpreterContext("note", "id", "title", "text", new AuthenticationInfo(),
+        new HashMap<String, Object>(), new GUI(),
         new AngularObjectRegistry(intpGroup.getId(), null),
-        new LinkedList<InterpreterContextRunner>());
+        null,
+        new LinkedList<InterpreterContextRunner>(), null);
   }
 
   @After
@@ -90,5 +98,12 @@ public class DepInterpreterTest {
 
     assertEquals(1, dep.getDependencyContext().getFiles().size());
     assertEquals(1, dep.getDependencyContext().getFilesDist().size());
+
+    // Add a test for the spark-packages repo - default in additionalRemoteRepository
+    ret = dep.interpret("z.load(\"amplab:spark-indexedrdd:0.3\")", context);
+    assertEquals(Code.SUCCESS, ret.code());
+
+    // Reset at the end of the test
+    dep.getDependencyContext().reset();
   }
 }

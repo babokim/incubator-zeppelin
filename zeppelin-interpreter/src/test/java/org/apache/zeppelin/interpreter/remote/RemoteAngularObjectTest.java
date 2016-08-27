@@ -25,20 +25,21 @@ import java.util.LinkedList;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.zeppelin.display.AngularObject;
-import org.apache.zeppelin.display.AngularObjectRegistry;
-import org.apache.zeppelin.display.AngularObjectRegistryListener;
-import org.apache.zeppelin.display.GUI;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterContextRunner;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.display.*;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.mock.MockInterpreterAngular;
+import org.apache.zeppelin.resource.LocalResourcePool;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
+  private static final String INTERPRETER_SCRIPT =
+          System.getProperty("os.name").startsWith("Windows") ?
+                  "../bin/interpreter.cmd" :
+                  "../bin/interpreter.sh";
+
   private InterpreterGroup intpGroup;
   private HashMap<String, String> env;
   private RemoteInterpreter intp;
@@ -65,14 +66,19 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
 
     intp = new RemoteInterpreter(
         p,
+        "note",
         MockInterpreterAngular.class.getName(),
-        new File("../bin/interpreter.sh").getAbsolutePath(),
+        new File(INTERPRETER_SCRIPT).getAbsolutePath(),
         "fake",
+        "fakeRepo",
         env,
-        10 * 1000
-        );
+        10 * 1000,
+        null,
+        null
+    );
 
-    intpGroup.add(intp);
+    intpGroup.put("note", new LinkedList<Interpreter>());
+    intpGroup.get("note").add(intp);
     intp.setInterpreterGroup(intpGroup);
 
     context = new InterpreterContext(
@@ -80,10 +86,12 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
         "id",
         "title",
         "text",
+        new AuthenticationInfo(),
         new HashMap<String, Object>(),
         new GUI(),
         new AngularObjectRegistry(intpGroup.getId(), null),
-        new LinkedList<InterpreterContextRunner>());
+        new LocalResourcePool("pool1"),
+        new LinkedList<InterpreterContextRunner>(), null);
 
     intp.open();
   }
@@ -91,7 +99,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
   @After
   public void tearDown() throws Exception {
     intp.close();
-    intpGroup.clone();
+    intpGroup.close();
     intpGroup.destroy();
   }
 
@@ -109,7 +117,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
     result = ret.message().split(" ");
     assertEquals("1", result[0]); // size of registry
     assertEquals("0", result[1]); // num watcher called
-    assertEquals("v1", localRegistry.get("n1", "note").get());
+    assertEquals("v1", localRegistry.get("n1", "note", null).get());
 
     // update object
     ret = intp.interpret("update n1 v11", context);
@@ -117,7 +125,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
     Thread.sleep(500);
     assertEquals("1", result[0]); // size of registry
     assertEquals("1", result[1]); // num watcher called
-    assertEquals("v11", localRegistry.get("n1", "note").get());
+    assertEquals("v11", localRegistry.get("n1", "note", null).get());
 
     // remove object
     ret = intp.interpret("remove n1", context);
@@ -125,7 +133,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
     Thread.sleep(500);
     assertEquals("0", result[0]); // size of registry
     assertEquals("1", result[1]); // num watcher called
-    assertEquals(null, localRegistry.get("n1", "note"));
+    assertEquals(null, localRegistry.get("n1", "note", null));
   }
 
   @Test
@@ -143,10 +151,10 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
     Thread.sleep(500);
     result = ret.message().split(" ");
     assertEquals("1", result[0]); // size of registry
-    assertEquals("v1", localRegistry.get("n1", "note").get());
+    assertEquals("v1", localRegistry.get("n1", "note", null).get());
 
     // remove object in local registry.
-    localRegistry.removeAndNotifyRemoteProcess("n1", "note");
+    localRegistry.removeAndNotifyRemoteProcess("n1", "note", null);
     ret = intp.interpret("get", context);
     Thread.sleep(500); // waitFor eventpoller pool event
     result = ret.message().split(" ");
@@ -164,7 +172,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
     assertEquals("0", result[0]); // size of registry
     
     // create object
-    localRegistry.addAndNotifyRemoteProcess("n1", "v1", "note");
+    localRegistry.addAndNotifyRemoteProcess("n1", "v1", "note", null);
     
     // get from remote registry 
     ret = intp.interpret("get", context);
@@ -184,7 +192,7 @@ public class RemoteAngularObjectTest implements AngularObjectRegistryListener {
   }
 
   @Override
-  public void onRemove(String interpreterGroupId, String name, String noteId) {
+  public void onRemove(String interpreterGroupId, String name, String noteId, String paragraphId) {
     onRemove.incrementAndGet();
   }
 

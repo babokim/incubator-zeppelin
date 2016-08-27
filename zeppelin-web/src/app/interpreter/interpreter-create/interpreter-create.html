@@ -12,27 +12,80 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <div>
-  <div class="row">
-    <div class="col-md-12">
-      <div class="interpreterSettingAdd" ng-show="showAddNewSetting">
-        <hr />
+  <div class="row interpreter">
+    <div class="col-md-12" ng-show="showAddNewSetting">
+      <hr />
+      <div class="interpreterSettingAdd">
         <h4>Create new interpreter</h4>
 
         <div class="form-group" style="width:200px">
-          <b>Name</b>
+          <b>Interpreter Name</b>
           <input id="newInterpreterSettingName" input pu-elastic-input
                  pu-elastic-input-minwidth="180px" ng-model="newInterpreterSetting.name" />
         </div>
 
-        <b>Interpreter</b>
+        <b>Interpreter group</b>
         <div class="form-group"
              style="width:180px">
           <select class="form-control input-sm" ng-model="newInterpreterSetting.group"
                   ng-change="newInterpreterGroupChange()">
-            <option ng-repeat="availableInterpreter in availableInterpreters | unique: 'group'" value="{{availableInterpreter.group}}">
-              {{availableInterpreter.group}}
+            <option ng-repeat="availableInterpreter in availableInterpreters | unique: 'name'| orderBy: 'name'" value="{{availableInterpreter.name}}">
+              {{availableInterpreter.name}}
             </option>
           </select>
+        </div>
+
+        <b>Option</b>
+        <div>
+          <span class="btn-group">
+            <button type="button" class="btn btn-default btn-xs dropdown-toggle"
+                    data-toggle="dropdown">
+              {{getSessionOption(setting.id)}} <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="menu">
+              <li>
+                <a style="cursor:pointer"
+                   tooltip="Single interpreter instance are shared across notes"
+                   ng-click="setSessionOption(setting.id, 'shared')">
+                  shared
+                </a>
+              </li>
+              <li>
+                <a style="cursor:pointer"
+                   tooltip="Separate Interpreter instance for each note"
+                   ng-click="setSessionOption(setting.id, 'scoped')">
+                  scoped
+                </a>
+              </li>
+              <li>
+                <a style="cursor:pointer"
+                   tooltip="Separate Interpreter process for each note"
+                   ng-click="setSessionOption(setting.id, 'isolated')">
+                  isolated
+                </a>
+              </li>
+            </ul>
+          </span>
+          <span>Interpreter for note</span>
+        </div>
+        <br />
+
+        <div class="col-md-12" style="padding-left:0px">
+          <div class="checkbox">
+            <span class="input-group" style="line-height:30px;">
+              <label><input type="checkbox" style="width:20px" ng-model="newInterpreterSetting.option.isExistingProcess"/> Connect to existing process </label>
+            </span>
+          </div>
+        </div>
+        <div ng-show="newInterpreterSetting.option.isExistingProcess" class="form-group" style="width:200px">
+          <b>Host</b>
+            <input id="newInterpreterSettingHost" input pu-elastic-input
+              pu-elastic-input-minwidth="180px" ng-model="newInterpreterSetting.option.host" />
+        </div>
+        <div ng-show="newInterpreterSetting.option.isExistingProcess" class="form-group" style="width:200px">
+          <b>Port</b>
+           <input id="newInterpreterSettingPort" input pu-elastic-input
+            pu-elastic-input-minwidth="180px" ng-model="newInterpreterSetting.option.port" />
         </div>
 
         <b>Properties</b>
@@ -48,8 +101,8 @@ limitations under the License.
             <td><textarea msd-elastic ng-model="value.value"></textarea></td>
             <td>{{value.description}}</td>
             <td>
-              <div class="btn btn-default btn-sm fa fa-remove" ng-click="removeInterpreterProperty(key)">
-              </div>
+              <button class="btn btn-default btn-sm fa fa-remove" ng-click="removeInterpreterProperty(key)">
+              </button>
             </td>
           </tr>
 
@@ -61,8 +114,52 @@ limitations under the License.
             <td><textarea msd-elastic ng-model="newInterpreterSetting.propertyValue"></textarea></td>
             <td></td>
             <td>
-              <div class="btn btn-default btn-sm fa fa-plus" ng-click="addNewInterpreterProperty()">
-              </div>
+              <button class="btn btn-default btn-sm fa fa-plus" ng-click="addNewInterpreterProperty()">
+              </button>
+            </td>
+          </tr>
+        </table>
+
+        <b>Dependencies</b>
+        <table class="table table-striped properties">
+          <tr>
+            <th>artifact</th>
+            <th>exclude</th>
+            <th>action</th>
+          </tr>
+
+          <tr ng-repeat="dep in newInterpreterSetting.dependencies">
+            <td>
+              <input ng-model="dep.groupArtifactVersion" style="width:100%" />
+            </td>
+            <td>
+              <textarea msd-elastic ng-model="dep.exclusions"
+                        ng-list
+                        placeholder="(Optional) comma separated groupId:artifactId list">
+              </textarea>
+            </td>
+            <td>
+              <button class="btn btn-default btn-sm fa fa-remove"
+                   ng-click="removeInterpreterDependency(dep.groupArtifactVersion)">
+              </button>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <input ng-model="newInterpreterSetting.depArtifact"
+                     placeholder="groupId:artifactId:version or local file path"
+                     style="width: 100%" />
+            </td>
+            <td>
+              <textarea msd-elastic ng-model="newInterpreterSetting.depExclude"
+                        ng-list
+                        placeholder="(Optional) comma separated groupId:artifactId list">
+              </textarea>
+            </td>
+            <td>
+              <button class="btn btn-default btn-sm fa fa-plus" ng-click="addNewInterpreterDependency()">
+              </button>
             </td>
           </tr>
         </table>
@@ -70,7 +167,7 @@ limitations under the License.
         <span class="btn btn-primary" ng-click="addNewInterpreterSetting()">
           Save
         </span>
-        <span class="btn btn-default" ng-click="showAddNewSetting=false">
+        <span class="btn btn-default" ng-click="cancelInterpreterSetting()">
           Cancel
         </span>
       </div>

@@ -36,6 +36,7 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
@@ -128,7 +129,7 @@ public class LensInterpreter extends Interpreter {
       s_logger.info("LensInterpreter created");
     }
     catch (Exception e) {
-      e.printStackTrace();
+      s_logger.error(e.toString(), e);
       s_logger.error("unable to create lens interpreter", e);
     }
   }
@@ -375,6 +376,7 @@ public class LensInterpreter extends Interpreter {
         closeShell(s_paraToQH.get(context.getParagraphId()).getShell());
       } catch (Exception e) {
         // ignore
+        s_logger.info("Exception in LensInterpreter while cancel finally, ignore", e);
       }
       s_paraToQH.remove(context.getParagraphId());
       closeShell(shell);
@@ -432,7 +434,7 @@ public class LensInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
   

@@ -26,23 +26,19 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.InterpreterUtils;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.markdown4j.Markdown4jProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Markdown interpreter for Zeppelin.
- *
- * @author Leemoonsoo
- * @author anthonycorbacho
- *
  */
 public class Markdown extends Interpreter {
   private Markdown4jProcessor md;
-
-  static {
-    Interpreter.register("md", Markdown.class.getName());
-  }
+  static final Logger LOGGER = LoggerFactory.getLogger(Markdown.class);
 
   public Markdown(Properties property) {
     super(property);
@@ -62,6 +58,7 @@ public class Markdown extends Interpreter {
     try {
       html = md.process(st);
     } catch (IOException | java.lang.RuntimeException e) {
+      LOGGER.error("Exception in Markdown while interpret ", e);
       return new InterpreterResult(Code.ERROR, InterpreterUtils.getMostRelevantMessage(e));
     }
     return new InterpreterResult(Code.SUCCESS, "%html " + html);
@@ -87,7 +84,7 @@ public class Markdown extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
 }

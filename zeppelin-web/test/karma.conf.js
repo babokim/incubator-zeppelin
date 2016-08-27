@@ -29,20 +29,23 @@ module.exports = function(config) {
       'bower_components/angular-animate/angular-animate.js',
       'bower_components/angular-touch/angular-touch.js',
       'bower_components/angular-route/angular-route.js',
+      'bower_components/angular-resource/angular-resource.js',
       'bower_components/angular-bootstrap/ui-bootstrap-tpls.js',
       'bower_components/angular-websocket/angular-websocket.min.js',
       'bower_components/ace-builds/src-noconflict/ace.js',
       'bower_components/ace-builds/src-noconflict/mode-scala.js',
+      'bower_components/ace-builds/src-noconflict/mode-python.js',
       'bower_components/ace-builds/src-noconflict/mode-sql.js',
       'bower_components/ace-builds/src-noconflict/mode-markdown.js',
       'bower_components/ace-builds/src-noconflict/mode-sh.js',
+      'bower_components/ace-builds/src-noconflict/mode-r.js',
       'bower_components/ace-builds/src-noconflict/keybinding-emacs.js',
       'bower_components/ace-builds/src-noconflict/ext-language_tools.js',
       'bower_components/ace-builds/src-noconflict/theme-chrome.js',
       'bower_components/angular-ui-ace/ui-ace.js',
       'bower_components/jquery.scrollTo/jquery.scrollTo.js',
       'bower_components/d3/d3.js',
-      'bower_components/nvd3/nv.d3.js',
+      'bower_components/nvd3/build/nv.d3.js',
       'bower_components/jquery-ui/jquery-ui.js',
       'bower_components/angular-dragdrop/src/angular-dragdrop.js',
       'bower_components/perfect-scrollbar/src/perfect-scrollbar.js',
@@ -52,8 +55,16 @@ module.exports = function(config) {
       'bower_components/angular-xeditable/dist/js/xeditable.js',
       'bower_components/highlightjs/highlight.pack.js',
       'bower_components/lodash/lodash.js',
-      'bower_components/angular-filter/dist/angular-filter.min.js',
+      'bower_components/angular-filter/dist/angular-filter.js',
       'bower_components/ngtoast/dist/ngToast.js',
+      'bower_components/ng-focus-if/focusIf.js',
+      'bower_components/bootstrap3-dialog/dist/js/bootstrap-dialog.min.js',
+      'bower_components/zeroclipboard/dist/ZeroClipboard.js',
+      'bower_components/moment/moment.js',
+      'bower_components/pikaday/pikaday.js',
+      'bower_components/handsontable/dist/handsontable.js',
+      'bower_components/moment-duration-format/lib/moment-duration-format.js',
+      'bower_components/select2/dist/js/select2.js',
       'bower_components/angular-mocks/angular-mocks.js',
       // endbower
       'src/app/app.js',
@@ -81,7 +92,7 @@ module.exports = function(config) {
       'PhantomJS'
     ],
 
-    reporters: 'coverage',
+    reporters: ['coverage','progress'],
 
     preprocessors: {
       'src/*/{*.js,!(test)/**/*.js}': 'coverage'
@@ -89,7 +100,8 @@ module.exports = function(config) {
 
     coverageReporter: {
       type: 'html',
-      dir: 'reports/coverage'
+      dir: '../reports/zeppelin-web-coverage',
+      subdir: '.'
     },
 
     // Which plugins to enable

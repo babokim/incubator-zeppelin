@@ -13,7 +13,8 @@
  */
 'use strict';
 
-angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope, $websocket, baseUrlSrv) {
+angular.module('zeppelinWebApp').factory('websocketEvents',
+  function($rootScope, $websocket, $location, baseUrlSrv) {
   var websocketCalls = {};
 
   websocketCalls.ws = $websocket(baseUrlSrv.getWebsocketUrl());
@@ -22,13 +23,22 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
   websocketCalls.ws.onOpen(function() {
     console.log('Websocket created');
     $rootScope.$broadcast('setConnectedStatus', true);
-    setInterval(function(){
+    setInterval(function() {
       websocketCalls.sendNewEvent({op: 'PING'});
     }, 10000);
   });
 
   websocketCalls.sendNewEvent = function(data) {
-    console.log('Send >> %o, %o', data.op, data);
+    if ($rootScope.ticket !== undefined) {
+      data.principal = $rootScope.ticket.principal;
+      data.ticket = $rootScope.ticket.ticket;
+      data.roles = $rootScope.ticket.roles;
+    } else {
+      data.principal = '';
+      data.ticket = '';
+      data.roles = '';
+    }
+    console.log('Send >> %o, %o, %o, %o, %o', data.op, data.principal, data.ticket, data.roles, data);
     websocketCalls.ws.send(JSON.stringify(data));
   };
 
@@ -44,12 +54,51 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
     console.log('Receive << %o, %o', payload.op, payload);
     var op = payload.op;
     var data = payload.data;
+    if (data.error !== undefined) {
+      alert(data.error);
+      return;
+    }
     if (op === 'NOTE') {
       $rootScope.$broadcast('setNoteContent', data.note);
+    } else if (op === 'NEW_NOTE') {
+      $location.path('/notebook/' + data.note.id);
     } else if (op === 'NOTES_INFO') {
       $rootScope.$broadcast('setNoteMenu', data.notes);
+    } else if (op === 'DEL_NOTE') {
+      $location.path('/#');
+    } else if (op === 'LIST_NOTEBOOK_JOBS') {
+      $rootScope.$broadcast('setNotebookJobs', data.notebookJobs);
+    } else if (op === 'LIST_UPDATE_NOTEBOOK_JOBS') {
+      $rootScope.$broadcast('setUpdateNotebookJobs', data.notebookRunningJobs);
+    } else if (op === 'AUTH_INFO') {
+      BootstrapDialog.show({
+        closable: false,
+        closeByBackdrop: false,
+        closeByKeyboard: false,
+        title: 'Insufficient privileges',
+        message: data.info.toString(),
+        buttons: [{
+          label: 'Login',
+          action: function(dialog) {
+            dialog.close();
+            angular.element('#loginModal').modal({
+                    show: 'true'
+                  });
+          }
+        }, {
+          label: 'Cancel',
+          action: function(dialog) {
+            dialog.close();
+            $location.path('/');
+          }
+        }]
+      });
     } else if (op === 'PARAGRAPH') {
       $rootScope.$broadcast('updateParagraph', data);
+    } else if (op === 'PARAGRAPH_APPEND_OUTPUT') {
+      $rootScope.$broadcast('appendParagraphOutput', data);
+    } else if (op === 'PARAGRAPH_UPDATE_OUTPUT') {
+      $rootScope.$broadcast('updateParagraphOutput', data);
     } else if (op === 'PROGRESS') {
       $rootScope.$broadcast('updateProgress', data);
     } else if (op === 'COMPLETION_LIST') {
@@ -58,6 +107,18 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
       $rootScope.$broadcast('angularObjectUpdate', data);
     } else if (op === 'ANGULAR_OBJECT_REMOVE') {
       $rootScope.$broadcast('angularObjectRemove', data);
+    } else if (op === 'APP_APPEND_OUTPUT') {
+      $rootScope.$broadcast('appendAppOutput', data);
+    } else if (op === 'APP_UPDATE_OUTPUT') {
+      $rootScope.$broadcast('updateAppOutput', data);
+    } else if (op === 'APP_LOAD') {
+      $rootScope.$broadcast('appLoad', data);
+    } else if (op === 'APP_STATUS_CHANGE') {
+      $rootScope.$broadcast('appStatusChange', data);
+    } else if (op === 'LIST_REVISION_HISTORY') {
+      $rootScope.$broadcast('listRevisionHistory', data);
+    } else if (op === 'NOTE_REVISION') {
+      $rootScope.$broadcast('noteRevision', data);
     }
   });
 

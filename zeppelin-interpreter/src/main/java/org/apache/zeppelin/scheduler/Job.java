@@ -37,7 +37,6 @@ import org.slf4j.LoggerFactory;
  *  and saving/loading jobs from disk.
  *  Changing/adding/deleting non transitive field name need consideration of that.
  *
- *  @author Leemoonsoo
  */
 public abstract class Job {
   /**
@@ -58,26 +57,28 @@ public abstract class Job {
     FINISHED,
     ERROR,
     ABORT;
-    boolean isReady() {
+    public boolean isReady() {
       return this == READY;
     }
 
-    boolean isRunning() {
+    public boolean isRunning() {
       return this == RUNNING;
     }
 
-    boolean isPending() {
+    public boolean isPending() {
       return this == PENDING;
     }
   }
 
   private String jobName;
   String id;
-  Object result;
+  protected Object result;
   Date dateCreated;
   Date dateStarted;
   Date dateFinished;
   Status status;
+
+  static Logger LOGGER = LoggerFactory.getLogger(Job.class);
 
   transient boolean aborted = false;
 
@@ -102,11 +103,16 @@ public abstract class Job {
     this(jobName, listener, JobProgressPoller.DEFAULT_INTERVAL_MSEC);
   }
 
+  public Job(String jobId, String jobName, JobListener listener) {
+    this(jobId, jobName, listener, JobProgressPoller.DEFAULT_INTERVAL_MSEC);
+  }
+
   public Job(String jobId, String jobName, JobListener listener, long progressUpdateIntervalMs) {
     this.jobName = jobName;
     this.listener = listener;
     this.progressUpdateIntervalMs = progressUpdateIntervalMs;
 
+    dateCreated = new Date();
     id = jobId;
 
     setStatus(Status.READY);
@@ -173,14 +179,14 @@ public abstract class Job {
       dateFinished = new Date();
       progressUpdator.terminate();
     } catch (NullPointerException e) {
-      logger().error("Job failed", e);
+      LOGGER.error("Job failed", e);
       progressUpdator.terminate();
       this.exception = e;
       result = e.getMessage();
       errorMessage = getStack(e);
       dateFinished = new Date();
     } catch (Throwable e) {
-      logger().error("Job failed", e);
+      LOGGER.error("Job failed", e);
       progressUpdator.terminate();
       this.exception = e;
       result = e.getMessage();
@@ -249,11 +255,7 @@ public abstract class Job {
     return dateFinished;
   }
 
-  private Logger logger() {
-    return LoggerFactory.getLogger(Job.class);
-  }
-
-  protected void setResult(Object result) {
+  public void setResult(Object result) {
     this.result = result;
   }
 }

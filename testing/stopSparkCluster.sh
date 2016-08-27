@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-if [ $# -ne 2 ]; then
+if [[ "$#" -ne 2 ]]; then
     echo "usage) $0 [spark version] [hadoop version]"
     echo "   eg) $0 1.3.1 2.6"
     exit 1
@@ -25,13 +25,18 @@ fi
 SPARK_VERSION="${1}"
 HADOOP_VERSION="${2}"
 
-FWDIR=$(dirname "${BASH_SOURCE-$0}")
+set -xe
+
+FWDIR="$(dirname "${BASH_SOURCE-$0}")"
 ZEPPELIN_HOME="$(cd "${FWDIR}/.."; pwd)"
-export SPARK_HOME=${ZEPPELIN_HOME}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
+
+SPARK_ARCHIVE="spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}"
+export SPARK_HOME="${ZEPPELIN_HOME}/${SPARK_ARCHIVE}"
+echo "SPARK_HOME is ${SPARK_HOME}"
 
 # set create PID dir
-export SPARK_PID_DIR=${SPARK_HOME}/run
-
+export SPARK_PID_DIR="${SPARK_HOME}/run"
 
 ${SPARK_HOME}/sbin/spark-daemon.sh stop org.apache.spark.deploy.worker.Worker 1
 ${SPARK_HOME}/sbin/stop-master.sh
+set +xe
