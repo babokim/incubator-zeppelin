@@ -494,7 +494,16 @@ angular.module('zeppelinWebApp')
     $scope.dirtyText = undefined;
   };
 
-  $scope.toggleEnableDisable = function () {
+  $scope.downloadParagraph = function() {
+    if ($scope.isRunning()) {
+      alert('Paragraph is running.');
+      return;
+    }
+    //console.log('Download node: %o paragraph: %o', $scope.note.id, $scope.paragraph.id);
+    window.open('/api/notebook/' + $scope.note.id + '/paragraph/' + $scope.paragraph.id + '/download', '_blank');
+  };
+
+  $scope.toggleEnableDisable = function() {
     $scope.paragraph.config.enabled = $scope.paragraph.config.enabled ? false : true;
     var newParams = angular.copy($scope.paragraph.settings.params);
     var newConfig = angular.copy($scope.paragraph.config);

@@ -18,12 +18,15 @@
 
 package org.apache.zeppelin.user;
 
+import java.util.HashSet;
+
 /***
  *
  */
 public class AuthenticationInfo {
   String user;
   String ticket;
+  HashSet<String> userAndRoles;
   UserCredentials userCredentials;
 
   public AuthenticationInfo() {}
@@ -36,10 +39,12 @@ public class AuthenticationInfo {
    *
    * @param user
    * @param ticket
+   * @param userAndRoles
    */
-  public AuthenticationInfo(String user, String ticket) {
+  public AuthenticationInfo(String user, String ticket, HashSet<String> userAndRoles) {
     this.user = user;
     this.ticket = ticket;
+    this.userAndRoles = userAndRoles;
   }
 
   public String getUser() {
@@ -56,6 +61,10 @@ public class AuthenticationInfo {
 
   public void setTicket(String ticket) {
     this.ticket = ticket;
+  }
+
+  public HashSet<String> getUserAndRoles() {
+    return userAndRoles;
   }
 
   public UserCredentials getUserCredentials() {

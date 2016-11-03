@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.notebook;
 
+import com.google.gson.internal.StringMap;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
@@ -36,6 +37,7 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
@@ -227,6 +229,51 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   public InterpreterResult getResult() {
     return (InterpreterResult) getReturn();
+  }
+
+  public byte[] getResultMessage() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    out.write(0xEF);
+    out.write(0xBB);
+    out.write(0xBF);
+
+    if (result != null) {
+      if (result instanceof InterpreterResult) {
+        out.write(resultToCsv(((InterpreterResult) result).message()).getBytes("UTF-8"));
+        out.close();
+        return out.toByteArray();
+      } else if (result instanceof StringMap) {
+        StringMap resultMap = (StringMap) result;
+        if (resultMap.get("msg") != null) {
+          out.write(resultToCsv(resultMap.get("msg").toString()).getBytes("UTF-8"));
+          out.close();
+          return out.toByteArray();
+        } else {
+          return "No data".getBytes();
+        }
+      } else {
+        return result.toString().getBytes();
+      }
+    } else {
+      return "No data".getBytes();
+    }
+  }
+
+  private String resultToCsv(String resultMessage) {
+    StringBuilder sb = new StringBuilder();
+    String[] lines = resultMessage.split("\n");
+
+    for (String eachLine: lines) {
+      String[] tokens = eachLine.split("\t");
+      String prefix = "";
+      for (String eachToken: tokens) {
+        sb.append(prefix).append("\"").append(eachToken.replace("\"", "'")).append("\"");
+        prefix = ",";
+      }
+      sb.append("\n");
+    }
+
+    return sb.toString();
   }
 
   @Override

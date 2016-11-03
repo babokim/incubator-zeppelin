@@ -135,14 +135,20 @@ public class NotebookServer extends WebSocketServlet implements
 
       HashSet<String> userAndRoles = new HashSet<String>();
       userAndRoles.add(messagereceived.principal);
+      HashSet<String> roles = null;
       if (!messagereceived.roles.equals("")) {
-        HashSet<String> roles = gson.fromJson(messagereceived.roles,
+        roles = gson.fromJson(messagereceived.roles,
                 new TypeToken<HashSet<String>>(){}.getType());
         if (roles != null) {
           userAndRoles.addAll(roles);
         }
       }
       AuthenticationInfo subject = new AuthenticationInfo(messagereceived.principal);
+
+      if (!checkPermission(conn, messagereceived.op,
+          messagereceived.principal, roles)) {
+        return;
+      }
 
       /** Lets be elegant here */
       switch (messagereceived.op) {
@@ -220,6 +226,17 @@ public class NotebookServer extends WebSocketServlet implements
     } catch (Exception e) {
       LOG.error("Can't handle message", e);
     }
+  }
+
+  private boolean checkPermission(NotebookSocket conn, Message.OP op, String current,
+                                  HashSet<String> roles) throws IOException {
+    if (!op.isPermitted(roles)) {
+      conn.send(serializeMessage(
+          (new Message(op))
+              .put("error", "[" + current + "] is not allowed to " + op)));
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -1004,20 +1021,34 @@ public class NotebookServer extends WebSocketServlet implements
 
     String noteId = getOpenNoteId(conn);
     final Note note = notebook.getNote(noteId);
+
     NotebookAuthorization notebookAuthorization = notebook.getNotebookAuthorization();
-    if (!notebookAuthorization.isWriter(noteId, userAndRoles)) {
-      permissionError(conn, "write", fromMessage.principal,
+    if (!notebookAuthorization.isReader(noteId, userAndRoles)) {
+      permissionError(conn, "read", fromMessage.principal,
           userAndRoles, notebookAuthorization.getWriters(noteId));
       return;
     }
 
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
+
+    if (!notebookAuthorization.isWriter(noteId, userAndRoles)) {
+      String originText = p.getText().trim().replace("\n", " ");
+      String messageText = text.trim().replace("\n", " ");
+
+      if (!originText.equals(messageText)) {
+        permissionError(conn, "write", fromMessage.principal,
+            userAndRoles, notebookAuthorization.getWriters(noteId));
+        return;
+      }
+    }
+
     p.setText(text);
     p.setTitle((String) fromMessage.get("title"));
     if (!fromMessage.principal.equals("anonymous")) {
       AuthenticationInfo authenticationInfo = new AuthenticationInfo(fromMessage.principal,
-          fromMessage.ticket);
+          fromMessage.ticket,
+          new HashSet<String>(userAndRoles));
       p.setAuthenticationInfo(authenticationInfo);
 
     } else {

@@ -18,6 +18,7 @@
 package org.apache.zeppelin.notebook.socket;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -43,15 +44,15 @@ public class Message {
               // @param id paragraph id
               // @param progress percentage progress
 
-    NEW_NOTE, // [c-s] create new notebook
-    DEL_NOTE, // [c-s] delete notebook
+    NEW_NOTE(true), // [c-s] create new notebook
+    DEL_NOTE(true), // [c-s] delete notebook
               // @param id note id
-    CLONE_NOTE, // [c-s] clone new notebook
+    CLONE_NOTE(true), // [c-s] clone new notebook
                 // @param id id of note to clone
                 // @param name name fpor the cloned note
-    IMPORT_NOTE,  // [c-s] import notebook
+    IMPORT_NOTE(true),  // [c-s] import notebook
                   // @param object notebook
-    NOTE_UPDATE,
+    NOTE_UPDATE(true),
 
     RUN_PARAGRAPH, // [c-s] run paragraph
                    // @param id paragraph id
@@ -107,14 +108,30 @@ public class Message {
 
     ANGULAR_OBJECT_CLIENT_UNBIND,  // [c-s] angular object unbind from AngularJS z object
 
-    LIST_CONFIGURATIONS, // [c-s] ask all key/value pairs of configurations
-    CONFIGURATIONS_INFO, // [s-c] all key/value pairs of configurations
+    LIST_CONFIGURATIONS(true), // [c-s] ask all key/value pairs of configurations
+    CONFIGURATIONS_INFO(true), // [s-c] all key/value pairs of configurations
                   // @param settings serialized Map<String, String> object
 
-    CHECKPOINT_NOTEBOOK     // [c-s] checkpoint notebook to storage repository
+    CHECKPOINT_NOTEBOOK(true);     // [c-s] checkpoint notebook to storage repository
                             // @param noteId
                             // @param checkpointName
 
+    private boolean writeOp = false;
+
+    OP() {
+      this(false);
+    }
+
+    OP(boolean writeOp) {
+      this.writeOp = writeOp;
+    }
+
+    public boolean isPermitted(HashSet<String> roles) {
+      if (roles.contains("admin") || roles.contains("dev")) {
+        return true;
+      }
+      return !writeOp;
+    }
   }
 
   public OP op;

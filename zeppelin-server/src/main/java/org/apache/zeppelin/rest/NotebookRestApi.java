@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.rest;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
@@ -28,11 +29,15 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.annotation.ZeppelinApi;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
@@ -70,6 +75,7 @@ public class NotebookRestApi {
   private NotebookServer notebookServer;
   private SearchService notebookIndex;
   private NotebookAuthorization notebookAuthorization;
+  private ZeppelinConfiguration conf;
 
   public NotebookRestApi() {}
 
@@ -78,6 +84,7 @@ public class NotebookRestApi {
     this.notebookServer = notebookServer;
     this.notebookIndex = search;
     this.notebookAuthorization = notebook.getNotebookAuthorization();
+    this.conf = ZeppelinConfiguration.create();
   }
 
   /**
@@ -87,6 +94,11 @@ public class NotebookRestApi {
   @Path("{noteId}/permissions")
   @ZeppelinApi
   public Response getNotePermissions(@PathParam("noteId") String noteId) {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
+
     Note note = notebook.getNote(noteId);
     HashMap<String, Set<String>> permissionsMap = new HashMap();
     permissionsMap.put("owners", notebookAuthorization.getOwners(noteId));
@@ -112,11 +124,15 @@ public class NotebookRestApi {
   @ZeppelinApi
   public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
       throws IOException {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission.").build();
+    }
+
     HashMap<String, HashSet> permMap = gson.fromJson(req,
             new TypeToken<HashMap<String, HashSet>>(){}.getType());
     Note note = notebook.getNote(noteId);
     String principal = SecurityUtils.getPrincipal();
-    HashSet<String> roles = SecurityUtils.getRoles();
     LOG.info("Set permissions {} {} {} {} {}",
             noteId,
             principal,
@@ -173,6 +189,11 @@ public class NotebookRestApi {
   @Path("interpreter/bind/{noteId}")
   @ZeppelinApi
   public Response bind(@PathParam("noteId") String noteId, String req) throws IOException {
+    HashSet<String> roles = SecurityUtils.getRoles();
+    if (!(roles.contains("admin") || roles.contains("dev"))) {
+      return new JsonResponse<>(Status.FORBIDDEN, "No permission to change interpreter").build();
+    }
+
     List<String> settingIdList = gson.fromJson(req, new TypeToken<List<String>>(){}.getType());
     notebook.bindInterpretersToNote(noteId, settingIdList);
     return new JsonResponse<>(Status.OK).build();
@@ -483,6 +504,50 @@ public class NotebookRestApi {
     notebookServer.broadcastNote(note);
 
     return new JsonResponse(Status.OK, "").build();
+  }
+
+  /**
+   * Download paragraph
+   * @param
+   * @return data stream
+   * @throws IOException
+   */
+  @GET
+  @Produces("text/csv")
+  @Path("{notebookId}/paragraph/{paragraphId}/download")
+  @ZeppelinApi
+  public Response downParagraph(@PathParam("notebookId") String notebookId,
+                                  @PathParam("paragraphId") String paragraphId)
+      throws IOException {
+    LOG.info("Download paragraph, node.id: {}, paragrap.id: {}", notebookId, paragraphId);
+
+    Note note = notebook.getNote(notebookId);
+    if (note == null) {
+      return new JsonResponse(Status.NOT_FOUND, "note not found.").build();
+    }
+
+    Paragraph p = note.getParagraph(paragraphId);
+    if (p == null) {
+      return new JsonResponse(Status.NOT_FOUND, "paragraph not found.").build();
+    }
+
+    String resultFileParent = conf.getString(ConfVars.ZEPPELIN_RESULT_DATA_DIR);
+
+    String fileName = notebookId + "_" + paragraphId;
+    final File file = new File(resultFileParent + "/" + fileName);
+
+    ResponseBuilder response = null;
+    if (file.exists()) {
+      LOG.info("Download data from " + file);
+      response = Response.ok((Object) file);
+    } else {
+      LOG.info("Download data from paragraph result " +
+          "because result file is not exists: " + file);
+      response = Response.ok(p.getResultMessage());
+    }
+    response.header("Content-Disposition", "attachment; filename=\"" + fileName + ".csv\"");
+    response.type(MediaType.TEXT_PLAIN + "; charset=UTF-8");
+    return response.build();
   }
 
   /**
