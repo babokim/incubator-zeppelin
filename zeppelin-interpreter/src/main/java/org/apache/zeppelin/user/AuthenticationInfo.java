@@ -22,6 +22,8 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+
 /***
  *
  */
@@ -29,6 +31,7 @@ public class AuthenticationInfo {
   private static final Logger LOG = LoggerFactory.getLogger(AuthenticationInfo.class);
   String user;
   String ticket;
+  HashSet<String> userAndRoles;
   UserCredentials userCredentials;
   public static final AuthenticationInfo ANONYMOUS = new AuthenticationInfo("anonymous",
       "anonymous");
@@ -47,6 +50,18 @@ public class AuthenticationInfo {
   public AuthenticationInfo(String user, String ticket) {
     this.user = user;
     this.ticket = ticket;
+  }
+
+  /***
+   *
+   * @param user
+   * @param ticket
+   * @param userAndRoles
+   */
+  public AuthenticationInfo(String user, String ticket, HashSet<String> userAndRoles) {
+    this.user = user;
+    this.ticket = ticket;
+    this.userAndRoles = userAndRoles;
   }
 
   public String getUser() {
@@ -85,5 +100,9 @@ public class AuthenticationInfo {
   public boolean isAnonymous() {
     return ANONYMOUS.equals(this) || "anonymous".equalsIgnoreCase(this.getUser())
         || StringUtils.isEmpty(this.getUser());
+  }
+
+  public HashSet<String> getUserAndRoles() {
+    return userAndRoles;
   }
 }

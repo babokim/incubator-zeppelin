@@ -259,6 +259,15 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
     $scope.dirtyText = undefined;
   };
 
+  $scope.downloadParagraph = function(paragraph) {
+    if ($scope.isRunning(paragraph)) {
+      alert('Paragraph is running.');
+      return;
+    }
+    //console.log('Download node: %o paragraph: %o', $scope.note.id, paragraph.id);
+    window.open('/api/notebook/' + $scope.note.id + '/paragraph/' + paragraph.id + '/download', '_blank');
+  };
+
   $scope.toggleEnableDisable = function(paragraph) {
     paragraph.config.enabled = !paragraph.config.enabled;
     commitParagraph(paragraph);

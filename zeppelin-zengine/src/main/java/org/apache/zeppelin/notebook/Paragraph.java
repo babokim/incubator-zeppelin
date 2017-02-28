@@ -19,10 +19,12 @@ package org.apache.zeppelin.notebook;
 
 import com.google.common.collect.Maps;
 import com.google.common.base.Strings;
+import com.google.gson.internal.StringMap;
 import org.apache.commons.lang.StringUtils;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.helium.HeliumPackage;
+import org.apache.zeppelin.interpreter.InterpreterResult.Type;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.user.Credentials;
@@ -39,6 +41,7 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
@@ -425,6 +428,66 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     } finally {
       InterpreterContext.remove();
     }
+  }
+
+  public byte[] getResultMessage() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    out.write(0xEF);
+    out.write(0xBB);
+    out.write(0xBF);
+
+    Object paragraphResult = results != null ? results : result;
+    if (paragraphResult != null) {
+      if (paragraphResult instanceof InterpreterResult) {
+        StringBuilder sb = new StringBuilder();
+
+        Type prevType = null;
+        for (InterpreterResultMessage m : ((InterpreterResult) paragraphResult).message()) {
+          if (prevType != null) {
+            sb.append("\n");
+            if (prevType == Type.TABLE) {
+              sb.append("\n");
+            }
+          }
+          sb.append(m.getData());
+          prevType = m.getType();
+        }
+
+        out.write(resultToCsv(sb.toString()).getBytes("UTF-8"));
+        out.close();
+        return out.toByteArray();
+      } else if (paragraphResult instanceof StringMap) {
+        StringMap resultMap = (StringMap) paragraphResult;
+        if (resultMap.get("msg") != null) {
+          out.write(resultToCsv(resultMap.get("msg").toString()).getBytes("UTF-8"));
+          out.close();
+          return out.toByteArray();
+        } else {
+          return "No data".getBytes();
+        }
+      } else {
+        return results.toString().getBytes();
+      }
+    } else {
+      return "No data".getBytes();
+    }
+  }
+
+  private String resultToCsv(String resultMessage) {
+    StringBuilder sb = new StringBuilder();
+    String[] lines = resultMessage.split("\n");
+
+    for (String eachLine: lines) {
+      String[] tokens = eachLine.split("\t");
+      String prefix = "";
+      for (String eachToken: tokens) {
+        sb.append(prefix).append("\"").append(eachToken.replace("\"", "'")).append("\"");
+        prefix = ",";
+      }
+      sb.append("\n");
+    }
+
+    return sb.toString();
   }
 
   private boolean noteHasUser() {

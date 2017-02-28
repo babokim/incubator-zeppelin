@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.rest;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,11 +33,15 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.annotation.ZeppelinApi;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
@@ -76,6 +81,7 @@ public class NotebookRestApi {
   private NotebookServer notebookServer;
   private SearchService noteSearchService;
   private NotebookAuthorization notebookAuthorization;
+  private ZeppelinConfiguration conf;
 
   public NotebookRestApi() {
   }
@@ -85,6 +91,7 @@ public class NotebookRestApi {
     this.notebookServer = notebookServer;
     this.noteSearchService = search;
     this.notebookAuthorization = notebook.getNotebookAuthorization();
+    this.conf = ZeppelinConfiguration.create();
   }
 
   /**
@@ -566,6 +573,50 @@ public class NotebookRestApi {
     notebookServer.broadcastNote(note);
 
     return new JsonResponse(Status.OK, "").build();
+  }
+
+  /**
+   * Download paragraph
+   * @param
+   * @return data stream
+   * @throws IOException
+   */
+  @GET
+  @Produces("text/csv")
+  @Path("{noteId}/paragraph/{paragraphId}/download")
+  @ZeppelinApi
+  public Response downParagraph(@PathParam("noteId") String noteId,
+                                @PathParam("paragraphId") String paragraphId)
+      throws IOException {
+    LOG.info("Download paragraph, node.id: {}, paragrap.id: {}", noteId, paragraphId);
+
+    Note note = notebook.getNote(noteId);
+    if (note == null) {
+      return new JsonResponse(Status.NOT_FOUND, "note not found.").build();
+    }
+
+    Paragraph p = note.getParagraph(paragraphId);
+    if (p == null) {
+      return new JsonResponse(Status.NOT_FOUND, "paragraph not found.").build();
+    }
+
+    String resultFileParent = conf.getString(ConfVars.ZEPPELIN_RESULT_DATA_DIR);
+
+    String fileName = noteId + "_" + paragraphId;
+    final File file = new File(resultFileParent + "/" + fileName);
+
+    ResponseBuilder response = null;
+    if (file.exists()) {
+      LOG.info("Download data from " + file);
+      response = Response.ok((Object) file);
+    } else {
+      LOG.info("Download data from the result of paragraph " +
+          "because result file is not exists: " + file);
+      response = Response.ok(p.getResultMessage());
+    }
+    response.header("Content-Disposition", "attachment; filename=\"" + fileName + ".csv\"");
+    response.type(MediaType.TEXT_PLAIN + "; charset=UTF-8");
+    return response.build();
   }
 
   /**
