@@ -17,11 +17,11 @@ package org.apache.zeppelin.presto;
 /**
  * Presto PermissionType.
  */
-public enum PermissionType {
-  READ("read"), WRITE("write"), DENY("deny"), ALLOW("allow");
+public enum Operation {
+  READ("read"), DROP("drop"), CREATE("create");
 
   private String name;
-  PermissionType(String name) {
+  Operation(String name) {
     this.name = name;
   }
 
@@ -29,15 +29,13 @@ public enum PermissionType {
     return name;
   }
 
-  static PermissionType getPermissionType(String name) {
+  static Operation getOperation(String name) {
     if (name.equals(READ.name)) {
       return READ;
-    } else if (name.equals(WRITE.name)) {
-      return WRITE;
-    } else if (name.equals(DENY.name)) {
-      return DENY;
-    } else if (name.equals(ALLOW.name)) {
-      return ALLOW;
+    } else if (name.equals(DROP.name)) {
+      return DROP;
+    } else if (name.equals(CREATE.name)) {
+      return CREATE;
     } else {
       return null;
     }

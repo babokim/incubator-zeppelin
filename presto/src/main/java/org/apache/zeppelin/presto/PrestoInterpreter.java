@@ -22,19 +22,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.facebook.presto.client.*;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.*;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import org.apache.zeppelin.display.AngularObjectRegistry;
-import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.commons.lang.StringUtils;
-import org.apache.zeppelin.interpreter.InterpreterResult.Type;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.presto.AccessControlManager.AclResult;
-import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +58,7 @@ public class PrestoInterpreter extends Interpreter {
   static final String PRESTO_RESULT_PATH = "presto.result.path";
   static final String PRESTO_RESULT_EXPIRE_DAY = "presto.result.expire";
   static final String PRESTO_ACL_PROPERTY = "presto.acl.properties.file";
+  static final String PRESTO_ACL_ENABLE = "presto.acl.enable";
 
   static {
     Interpreter.register(
@@ -80,6 +76,7 @@ public class PrestoInterpreter extends Interpreter {
             .add(PRESTO_RESULT_EXPIRE_DAY, "2", "Result data will be expire after this day.")
             .add(PRESTOSERVER_USER, "Presto", "The Presto user")
             .add(PRESTOSERVER_PASSWORD, "", "The password for the Presto user")
+            .add(PRESTO_ACL_ENABLE, "true", "Enable ACL")
             .add(PRESTO_ACL_PROPERTY, "",
                 "Presto ACL property file path(default is conf/presto-acl.properties)").build());
   }
@@ -344,12 +341,27 @@ public class PrestoInterpreter extends Interpreter {
 
   private InterpreterResult checkAclAndExecuteSql(String sql,
                                                   InterpreterContext context) {
+    if (sql.equals("reload")) {
+      try {
+        AccessControlManager aclInstance = AccessControlManager.getInstance(property);
+        aclInstance.loadConfig();
+        return new InterpreterResult(Code.SUCCESS, "Reloaded.");
+      } catch (Exception e) {
+        e.printStackTrace();
+        logger.error(e.getMessage(), e);
+        return new InterpreterResult(Code.ERROR,
+            "Error while reload config: " + e.getMessage());
+      }
+    }
     ParagraphTask task = getParagraphTask(context);
     task.reportProgress.set(false);
     task.queryCanceled.set(false);
 
     try {
       AuthenticationInfo authInfo = context.getAuthenticationInfo();
+      if (authInfo.getUserAndRoles() == null || authInfo.getUserAndRoles().isEmpty()) {
+        return new InterpreterResult(Code.ERROR, "Not login user.");
+      }
       if (authInfo == null || sql.trim().toLowerCase().startsWith("explain")) {
         return executeSql(sql, context, true);
       } else {
@@ -358,32 +370,33 @@ public class PrestoInterpreter extends Interpreter {
         if (planResult.code() == Code.ERROR) {
           return planResult;
         }
-//        try {
-//          AccessControlManager aclInstance = AccessControlManager.getInstance(property);
-//          String plan = planResult.message().get(0).getData();
-//          StringBuilder aclMessage = null;
-//          boolean canAccess = false;
-//          for (String principal : authInfo.getUserAndRoles()) {
-//            aclMessage = new StringBuilder();
-//            AclResult aclResult = aclInstance.checkAcl(sql, plan, principal, aclMessage);
-//            if (aclResult == AclResult.OK) {
-//              canAccess = true;
-//              break;
-//            } else if (aclResult == AclResult.NEED_PARTITION_COLUMN) {
-//              canAccess = false;
-//              break;
-//            }
-//          }
-//          if (!canAccess) {
-//            return new InterpreterResult(Code.ERROR,
-//                "[" + StringUtils.join(authInfo.getUserAndRoles(), ",") + "]" +
-//                    aclMessage.toString());
-//          }
-//        } catch (Exception e) {
-//          e.printStackTrace();
-//          return new InterpreterResult(Code.ERROR,
-//              "Error while checking authority: " + e.getMessage());
-//        }
+        try {
+          AccessControlManager aclInstance = AccessControlManager.getInstance(property);
+          String plan = planResult.message().get(0).getData();
+          StringBuilder aclMessage = null;
+          boolean canAccess = false;
+          for (String principal : authInfo.getUserAndRoles()) {
+            aclMessage = new StringBuilder();
+            AclResult aclResult = aclInstance.checkAcl(sql, plan, principal, aclMessage);
+            if (aclResult == AclResult.OK) {
+              canAccess = true;
+              break;
+            } else if (aclResult == AclResult.NEED_PARTITION_COLUMN) {
+              canAccess = false;
+              break;
+            }
+          }
+          if (!canAccess) {
+            return new InterpreterResult(Code.ERROR,
+                "[" + StringUtils.join(authInfo.getUserAndRoles(), ",") + "]" +
+                    aclMessage.toString());
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+          logger.error(e.getMessage(), e);
+          return new InterpreterResult(Code.ERROR,
+              "Error while checking authority: " + e.getMessage());
+        }
 
         if (!task.queryCanceled.get()) {
           return executeSql(sql, context, false);
@@ -510,6 +523,14 @@ public class PrestoInterpreter extends Interpreter {
     } catch (Exception ex) {
       ex.printStackTrace();
       logger.error("Can not run " + sql, ex);
+      if (ex.getMessage() != null && ex.getMessage().indexOf("QueryResults") >= 0 ) {
+        String errorMessage = ex.getMessage();
+        int index = errorMessage.indexOf("error=QueryError{message=");
+        if (index > 0) {
+          String realMessage = errorMessage.substring(index + "error=QueryError{message=".length(), errorMessage.indexOf(", sqlState="));
+          return new InterpreterResult(Code.ERROR, realMessage);
+        }
+      }
       return new InterpreterResult(Code.ERROR, ex.getMessage());
     } finally {
       if (resultFileMeta != null && resultFileMeta.outStream != null) {
@@ -688,21 +709,21 @@ public class PrestoInterpreter extends Interpreter {
     property.setProperty(PRESTOSERVER_URL, "http://localhost:8090");
     property.setProperty(PRESTOSERVER_CATALOG, "hive");
     property.setProperty(PRESTOSERVER_SCHEMA, "ko");
-    property.setProperty(PRESTOSERVER_USER, "hadoop");
+    property.setProperty(PRESTOSERVER_USER, "babokim");
     property.setProperty(PRESTOSERVER_PASSWORD, "1234");
     property.setProperty(PRESTO_MAX_RESULT_ROW, "100");
     property.setProperty(PRESTO_MAX_ROW, "1000");
+    property.setProperty(PRESTO_ACL_ENABLE, "true");
     property.setProperty(PRESTO_ACL_PROPERTY,
-        "/Users/hyoungjunkim/work/workspace/zeppelin/conf/presto-acl.properties");
+        "/Users/babokim/work/workspace/zeppelin/conf/presto-acl.properties");
 
-    String sql = "select * from mysql.test.test \n" +
-        "limit 5";
+    String sql = "desc hive.default.t1";
 
     PrestoInterpreter presto = new PrestoInterpreter(property);
     presto.open();
 
     HashSet<String> userAndRoles = new HashSet<String>();
-    userAndRoles.add("emp");
+    userAndRoles.add("user");
 
     InterpreterContext context = new InterpreterContext(
         "noteId1",
@@ -719,12 +740,12 @@ public class PrestoInterpreter extends Interpreter {
         null  //InterpreterOutput out
     );
 
-    InterpreterResult aclResult = presto.checkAclAndExecuteSql(sql, context);
-    if (aclResult.code() == Code.ERROR) {
-      System.out.println("ACL error: " + aclResult.message());
+    InterpreterResult result = presto.checkAclAndExecuteSql(sql, context);
+    if (result.code() == Code.ERROR) {
+      System.out.println("ACL error: " + result.message());
       return;
     }
-    InterpreterResult result = presto.executeSql(sql, context, true);
+//    InterpreterResult result = presto.executeSql(sql, context, true);
 
     System.out.println("====Result====");
     System.out.println(result.message());

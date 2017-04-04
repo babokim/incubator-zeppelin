@@ -34,7 +34,7 @@ public class AuthenticationInfo {
   HashSet<String> userAndRoles;
   UserCredentials userCredentials;
   public static final AuthenticationInfo ANONYMOUS = new AuthenticationInfo("anonymous",
-      "anonymous");
+      "anonymous", null);
 
   public AuthenticationInfo() {}
 
@@ -47,10 +47,10 @@ public class AuthenticationInfo {
    * @param user
    * @param ticket
    */
-  public AuthenticationInfo(String user, String ticket) {
-    this.user = user;
-    this.ticket = ticket;
-  }
+//  public AuthenticationInfo(String user, String ticket) {
+//    this.user = user;
+//    this.ticket = ticket;
+//  }
 
   /***
    *

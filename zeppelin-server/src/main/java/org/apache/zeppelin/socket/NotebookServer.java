@@ -196,9 +196,10 @@ public class NotebookServer extends WebSocketServlet
       }
 
       HashSet<String> userAndRoles = new HashSet<>();
+      LOG.info(">>>>>>>>>>messagereceived>" + messagereceived.principal + "," + messagereceived.roles);
       userAndRoles.add(messagereceived.principal);
       if (!messagereceived.roles.equals("")) {
-        HashSet<String> roles =
+        HashSet<String> roles  =
             gson.fromJson(messagereceived.roles, new TypeToken<HashSet<String>>() {
             }.getType());
         if (roles != null) {
@@ -209,7 +210,7 @@ public class NotebookServer extends WebSocketServlet
         addUserConnection(messagereceived.principal, conn);
       }
       AuthenticationInfo subject =
-          new AuthenticationInfo(messagereceived.principal, messagereceived.ticket);
+          new AuthenticationInfo(messagereceived.principal, messagereceived.ticket, userAndRoles);
 
       /** Lets be elegant here */
       switch (messagereceived.op) {
@@ -1583,7 +1584,7 @@ public class NotebookServer extends WebSocketServlet
       Map<String, Object> config = (Map<String, Object>) raw.get("config");
 
       Paragraph p = setParagraphUsingMessage(note, fromMessage,
-          paragraphId, text, title, params, config);
+          paragraphId, text, title, params, config, userAndRoles);
 
       persistAndExecuteSingleParagraph(conn, note, p);
     }
@@ -1610,7 +1611,7 @@ public class NotebookServer extends WebSocketServlet
     Map<String, Object> params = (Map<String, Object>) fromMessage.get("params");
     Map<String, Object> config = (Map<String, Object>) fromMessage.get("config");
     Paragraph p = setParagraphUsingMessage(note, fromMessage, paragraphId,
-        text, title, params, config);
+        text, title, params, config, userAndRoles);
 
     persistAndExecuteSingleParagraph(conn, note, p);
   }
@@ -1651,12 +1652,13 @@ public class NotebookServer extends WebSocketServlet
 
   private Paragraph setParagraphUsingMessage(Note note, Message fromMessage, String paragraphId,
                                              String text, String title, Map<String, Object> params,
-                                             Map<String, Object> config) {
+                                             Map<String, Object> config,
+                                             HashSet<String> userAndRoles) {
     Paragraph p = note.getParagraph(paragraphId);
     p.setText(text);
     p.setTitle(title);
     AuthenticationInfo subject =
-        new AuthenticationInfo(fromMessage.principal, fromMessage.ticket);
+        new AuthenticationInfo(fromMessage.principal, fromMessage.ticket, new HashSet<String>(userAndRoles));
     p.setAuthenticationInfo(subject);
     p.settings.setParams(params);
     p.setConfig(config);
