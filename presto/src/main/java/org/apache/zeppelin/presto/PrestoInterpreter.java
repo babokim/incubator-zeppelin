@@ -708,8 +708,8 @@ public class PrestoInterpreter extends Interpreter {
     Properties property = new Properties();
     property.setProperty(PRESTOSERVER_URL, "http://localhost:8090");
     property.setProperty(PRESTOSERVER_CATALOG, "hive");
-    property.setProperty(PRESTOSERVER_SCHEMA, "ko");
-    property.setProperty(PRESTOSERVER_USER, "babokim");
+    property.setProperty(PRESTOSERVER_SCHEMA, "default");
+    property.setProperty(PRESTOSERVER_USER, "hadoop");
     property.setProperty(PRESTOSERVER_PASSWORD, "1234");
     property.setProperty(PRESTO_MAX_RESULT_ROW, "100");
     property.setProperty(PRESTO_MAX_ROW, "1000");
@@ -717,13 +717,15 @@ public class PrestoInterpreter extends Interpreter {
     property.setProperty(PRESTO_ACL_PROPERTY,
         "/Users/babokim/work/workspace/zeppelin/conf/presto-acl.properties");
 
-    String sql = "desc hive.default.t1";
+    String sql = "";
+
+    System.out.println(sql);
 
     PrestoInterpreter presto = new PrestoInterpreter(property);
     presto.open();
 
     HashSet<String> userAndRoles = new HashSet<String>();
-    userAndRoles.add("user");
+    userAndRoles.add("admin");
 
     InterpreterContext context = new InterpreterContext(
         "noteId1",

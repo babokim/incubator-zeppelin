@@ -272,6 +272,7 @@ public class AccessControlManager {
     boolean isInfoQuery = sql.toLowerCase().trim().startsWith("show");
     boolean isDescQuery = sql.toLowerCase().trim().startsWith("desc");
 
+    //System.out.println(">>>>>>" + queryPlan);
     BufferedReader reader = new BufferedReader(new StringReader(queryPlan));
 
     try {
@@ -411,17 +412,37 @@ public class AccessControlManager {
       line = currentLine.substring("TableScan[".length());
     }
 
-    String[] tokens = line.substring(0, currentLine.indexOf(",")).split(":");
-    String catalog = tokens[1];
-    String schema = tokens[2];
-    String table = tokens[3];
+    String[] tokens = line.substring(0, line.indexOf(",")).split(":");
+    String catalog = null;
+    String schema = null;
+    String table = null;
 
-    if (!"hive".equals(catalog)) {
-      tokens = schema.split("\\.");
-      if (tokens.length == 2) {
-        schema = tokens[0];
-        table = tokens[1];
+    if (tokens.length == 2) {
+      catalog = tokens[0];
+      String[] subTokens = tokens[1].split("\\.");
+      if (subTokens.length == 2) {
+        schema = subTokens[0];
+        table = subTokens[1];
       }
+    } else if (tokens.length == 3) {
+      catalog = tokens[1];
+      String[] subTokens = tokens[2].split("\\.");
+      if (subTokens.length == 2) {
+        schema = subTokens[0];
+        table = subTokens[1];
+      }
+    } else if (tokens.length > 3) {
+      catalog = tokens[1];
+      schema = tokens[2];
+      table = tokens[3];
+    } else {
+      throw new IOException("Can't parse catalog, schema, table from [" + currentLine + "]");
+    }
+    schema = schema.toLowerCase(Locale.ENGLISH).replace('-', '_');
+    table = table.toLowerCase(Locale.ENGLISH).replace('-', '_');
+
+    if (table == null) {
+      throw new IOException("Can't get table name from [" + currentLine + "]");
     }
     int columnIndex = line.lastIndexOf("=> [");
     String[] columnTokens = line.substring(columnIndex + 4, line.getBytes().length - 1).split(",");
@@ -478,7 +499,10 @@ public class AccessControlManager {
     String schemaFqn = catalog + "." + schema;
     Set<Operation> permissions = userAcls.get(schemaFqn);
     if (permissions == null || !permissions.contains(permissionType)) {
-      return false;
+      permissions = userAcls.get(catalog + ".*");
+      if (permissions == null || !permissions.contains(permissionType)) {
+        return false;
+      }
     }
 
     // Check Table
@@ -487,10 +511,12 @@ public class AccessControlManager {
     }
 
     Set<String> userGrantedTables = grantedTables.get(principal);
+    if (userGrantedTables == null) {
+      return false;
+    }
     String tableFqn = schemaFqn + "." + table;
-    if (userGrantedTables == null || !userGrantedTables.contains(tableFqn)) {
-      tableFqn = schemaFqn + ".*";
-      if (userGrantedTables == null || !userGrantedTables.contains(tableFqn)) {
+    if (!userGrantedTables.contains(tableFqn)) {
+      if (!userGrantedTables.contains(schemaFqn + ".*") && !userGrantedTables.contains(catalog + ".*.*")) {
         return false;
       }
     }
@@ -503,7 +529,6 @@ public class AccessControlManager {
     if (userGrantedColumns == null) {
       return true;
     }
-    tableFqn = schemaFqn + "." + table;
     Set<String> tableColumns = userGrantedColumns.get(tableFqn);
     if (tableColumns == null) {
       return true;
