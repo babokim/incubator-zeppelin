@@ -798,7 +798,6 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
             label: 'Cancel',
             action: function(dialog) {
               dialog.close();
-              $location.path('/');
             }
           }
         ]

@@ -617,7 +617,8 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     ZEPPELIN_CREDENTIALS_PERSIST("zeppelin.credentials.persist", true),
     ZEPPELIN_WEBSOCKET_MAX_TEXT_MESSAGE_SIZE("zeppelin.websocket.max.text.message.size", "1024000"),
     ZEPPELIN_RESULT_DATA_DIR("zeppelin.paragraph.result.dir",
-        "/tmp/zeppelin-" + System.getProperty("user.name"));
+        "/tmp/zeppelin-" + System.getProperty("user.name")),
+    ZEPPELIN_JWT_KEY("zeppelin.jwt_key", null);
 
     private String varName;
     @SuppressWarnings("rawtypes")

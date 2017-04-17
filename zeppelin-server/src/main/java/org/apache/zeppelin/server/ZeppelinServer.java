@@ -24,6 +24,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.servlet.DispatcherType;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.Application;
 
 import org.apache.commons.lang.StringUtils;
@@ -169,6 +174,11 @@ public class ZeppelinServer extends Application {
 
     ContextHandlerCollection contexts = new ContextHandlerCollection();
     jettyWebServer.setHandler(contexts);
+
+    ServletContextHandler tokenCallbackServletHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
+    tokenCallbackServletHandler.setContextPath("/sso");
+    contexts.addHandler(tokenCallbackServletHandler);
+    tokenCallbackServletHandler.addServlet(new ServletHolder(new TokenCallbackServlet()), "/jwt");
 
     // Web UI
     final WebAppContext webApp = setupWebAppContext(contexts, conf);
@@ -400,5 +410,20 @@ public class ZeppelinServer extends Application {
    */
   private static boolean isBinaryPackage(ZeppelinConfiguration conf) {
     return !new File(conf.getRelativeDir("zeppelin-web")).isDirectory();
+  }
+
+  public static class TokenCallbackServlet extends HttpServlet {
+    private static final long serialVersionUID = -6154475799000019575L;
+    protected void doGet(HttpServletRequest request,
+                         HttpServletResponse response) throws ServletException,
+    IOException {
+      response.setContentType("text/html");
+      String token = request.getParameter("token");
+      Cookie cookie = new Cookie("jwt_token", token);
+      cookie.setPath("/");
+      response.addCookie(cookie);
+      response.setStatus(HttpServletResponse.SC_OK);
+      response.getWriter().println("<script>document.location.href='/';</script>");
+    }
   }
 }

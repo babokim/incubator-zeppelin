@@ -706,7 +706,7 @@ public class PrestoInterpreter extends Interpreter {
 
   public static void main(String[] args) throws Exception {
     Properties property = new Properties();
-    property.setProperty(PRESTOSERVER_URL, "http://localhost:8090");
+    property.setProperty(PRESTOSERVER_URL, "http://localhost:18082");
     property.setProperty(PRESTOSERVER_CATALOG, "hive");
     property.setProperty(PRESTOSERVER_SCHEMA, "default");
     property.setProperty(PRESTOSERVER_USER, "hadoop");

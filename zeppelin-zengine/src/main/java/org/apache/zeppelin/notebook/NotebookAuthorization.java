@@ -274,9 +274,13 @@ public class NotebookAuthorization {
 
   // return true if b is empty or if (a intersection b) is non-empty
   private boolean isMember(Set<String> a, Set<String> b) {
+    if (a.contains("admin")) {
+      return true;
+    }
     Set<String> intersection = new HashSet<>(b);
     intersection.retainAll(a);
-    return (b.isEmpty() || (intersection.size() > 0));
+//    return (b.isEmpty() || (intersection.size() > 0));
+    return ((intersection.size() > 0));
   }
 
   public boolean isOwner(Set<String> userAndRoles, String noteId) {
