@@ -16,6 +16,7 @@ import './app/app.js';
 import './app/app.controller.js';
 import './app/home/home.controller.js';
 import './app/handsontable/handsonHelper.js';
+import './app/handsontable/linkParameterHelper.js'
 import './app/notebook/notebook.controller.js';
 
 /** start: global variable `zeppelin` related files */
@@ -75,3 +76,6 @@ import './components/notevarshareService/notevarshare.service.js';
 import './components/rename/rename.controller.js';
 import './components/rename/rename.service.js';
 import './components/helium/helium.service.js';
+import './components/linkParameter/linkparameter.controller.js'
+import './components/linkParameter/link-parameter.directive.js'
+import './components/paragraph-result-share-service/paragraph-result-share.service.js'

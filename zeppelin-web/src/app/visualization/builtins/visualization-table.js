@@ -15,6 +15,7 @@
 import Visualization from '../visualization';
 import PassthroughTransformation from '../../tabledata/passthrough';
 import HandsonHelper from '../../handsontable/handsonHelper';
+import LinkParameterHelper from '../../handsontable/linkParameterHelper'
 
 /**
  * Visualize data in table format
@@ -44,9 +45,14 @@ export default class TableVisualization extends Visualization {
       this.hot.destroy();
     }
 
+    if(tableData.linkedParameters && tableData.linkedParameters.length > 0) {
+      var linkParameterHelper = new LinkParameterHelper(columnNames, resultRows);
+      resultRows = linkParameterHelper.generateLinkParameters(tableData.linkedParameters);
+    }
+
     var handsonHelper = new HandsonHelper();
     this.hot = new Handsontable(container, handsonHelper.getHandsonTableConfig(
-      columns, columnNames, resultRows));
+      columns, columnNames, resultRows, this._compile, this._currentScope));
     this.hot.validateCells(null);
   };
 

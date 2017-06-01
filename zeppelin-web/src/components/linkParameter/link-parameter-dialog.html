@@ -1,0 +1,92 @@
+<div id="{{ paragraph.id }}_linkParameterModal" class="modal fade" role="dialog" tabindex="-1">
+  <div class="modal-dialog">
+    <!-- Modal content-->
+    <div class="modal-content" id="{{ paragraph.id }}_LinkParameterCtrl">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Link Parameter</h4>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-control-label">Link Column</label>
+
+          <select class="form-control" ng-model="data.selectedLinkColumn">
+            <option ng-repeat="column in data.availableLinkColumns" value="{{ column }}">
+              {{ column.name }}
+            </option>
+          </select>
+
+        </div>
+        <div class="form-group">
+          <label class="form-control-label">Paragraph</label>
+          <input type="text" class="form-control" ng-model="data.paragraph"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-control-label">Link Parameters</label>
+          <table class="table">
+            <thead>
+            <tr>
+              <th>Column</th>
+              <th>Input name</th>
+              <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="linkParameterRow in data.linkParameterRows">
+              <td>
+                <input type="text" class="form-control" value="{{ linkParameterRow.column }}"
+                       ng-model="linkParameterRow.column"/></td>
+              <td>
+                <input type="text" class="form-control" value="{{ linkParameterRow.inputName }}"
+                       ng-model="linkParameterRow.inputName"/></td>
+              <td>
+                <a href="" class="btn btn-info" ng-click="addRow($index)">
+                  <span class="glyphicon glyphicon-plus"></span>
+                </a>
+                <a href="" class="btn btn-info" ng-click="deleteRow($index)">
+                  <span class="glyphicon glyphicon-minus"></span>
+                </a>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="form-group">
+          <button type="button" class="btn btn-primary center-block" style="width: 100px;"
+                  ng-click="addLink(paragraph.id)">
+            Add
+          </button>
+        </div>
+        <div class="form-group">
+          <label class="form-control-label">추가된 Links</label>
+          <table class="table table-fixed">
+            <thead>
+            <tr>
+              <th class="col-xs-2">Link Colum</th>
+              <th class="col-xs-2">Paragraph</th>
+              <th class="col-xs-6">Link parameters</th>
+              <th class="col-xs-2"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr ng-repeat="addedLink in data.addedLinks">
+              <td class="col-xs-2">{{ addedLink.linkColumn }}</td>
+              <td class="col-xs-2">{{ addedLink.targetParagraph }}</td>
+              <td class="col-xs-6">{{ addedLink.linkParameters }}</td>
+              <td class="col-xs-2">
+                <a href="" class="btn btn-danger" ng-click="deleteLink($index)">
+                  <span class="glyphicon glyphicon-minus"></span>
+                </a>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -173,7 +173,9 @@ public class Message {
     PARAGRAPH_REMOVED,            // [s-c] paragraph deleted
     PARAGRAPH_MOVED,              // [s-c] paragraph moved
     NOTE_UPDATED,                 // [s-c] paragraph updated(name, config)
-    RUN_ALL_PARAGRAPHS            // [c-s] run all paragraphs
+    RUN_ALL_PARAGRAPHS,           // [c-s] run all paragraphs
+    LINK_PARAMETER,
+    RENDER_LINKED_PARAMETER
   }
 
   public static final Message EMPTY = new Message(null);

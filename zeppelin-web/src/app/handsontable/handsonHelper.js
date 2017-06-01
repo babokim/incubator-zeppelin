@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import LinkParameterHelper from './linkParameterHelper'
 
 /**
  * HandsonHelper class
@@ -21,9 +22,10 @@ export default class HandsonHelper {
     this.rows = rows || [];
     this.comment = comment || '';
     this._numericValidator = this._numericValidator.bind(this);
+    this.linkParameterHelper = new LinkParameterHelper();
   };
 
-  getHandsonTableConfig(columns, columnNames, resultRows) {
+  getHandsonTableConfig(columns, columnNames, resultRows, compile, scope) {
     var self = this;
     return {
       colHeaders: columnNames,
@@ -45,7 +47,7 @@ export default class HandsonHelper {
         var cellProperties = {};
         var colType = columns[co].type;
         cellProperties.renderer = function(instance, td, row, col, prop, value, cellProperties) {
-          self._cellRenderer(instance, td, row, col, prop, value, cellProperties, colType);
+          self._cellRenderer(instance, td, row, col, prop, value, cellProperties, colType, compile, scope);
         };
         return cellProperties;
       },
@@ -152,13 +154,16 @@ export default class HandsonHelper {
     return false;
   }
 
-  _cellRenderer(instance, td, row, col, prop, value, cellProperties, colType) {
+  _cellRenderer(instance, td, row, col, prop, value, cellProperties, colType, compile, scope) {
     if (colType === 'numeric' && this._isNumeric(value)) {
       cellProperties.format = '0,0.[00000]';
       td.style.textAlign = 'left';
       Handsontable.renderers.NumericRenderer.apply(this, arguments);
     } else if (value.length > '%html'.length && '%html ' === value.substring(0, '%html '.length)) {
       td.innerHTML = value.substring('%html'.length);
+    } else if (this.linkParameterHelper.isLinkParameterHtmlTag(value)) {
+      td.innerHTML = value;
+      compile(td)(scope)
     } else {
       Handsontable.renderers.TextRenderer.apply(this, arguments);
     }

@@ -168,6 +168,13 @@ function websocketEvents($rootScope, $websocket, $location, baseUrlSrv) {
       $rootScope.$broadcast('updateNote', data.name, data.config, data.info);
     } else if (op === 'SET_NOTE_REVISION') {
       $rootScope.$broadcast('setNoteRevisionResult', data);
+    } else if (op === 'RENDER_LINKED_PARAMETER') {
+      $rootScope.$broadcast('renderLinkParameterToParagraphResult', {
+        sourceParagraphId: data.linkedParameter.sourceParagraphId,
+        sourceParagraphLinkColumnIdx: data.linkedParameter.sourceParagraphLinkColumnIdx,
+        targetParagraph: data.linkedParameter.targetParagraph,
+        targetParagraphLinkParams: data.linkedParameter.targetParagraphLinkParams
+      });
     }
   });
 

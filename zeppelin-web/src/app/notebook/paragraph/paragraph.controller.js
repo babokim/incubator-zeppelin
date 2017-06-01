@@ -125,15 +125,15 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
 
   var initializeDefault = function(config) {
     var forms = $scope.paragraph.settings.forms;
-    
+
     if (!config.colWidth) {
       config.colWidth = 12;
     }
-  
+
     if (config.enabled === undefined) {
       config.enabled = true;
     }
-  
+
     for (var idx in forms) {
       if (forms[idx]) {
         if (forms[idx].options) {
@@ -154,6 +154,17 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
       editorSetting.isOutputHidden = config.editorSetting.editOnDblClick;
     }
   };
+
+  $scope.openLinkParameterModal = function(paragraphId) {
+    $rootScope.$broadcast('openLinkParameterModal', paragraphId)
+  }
+
+  $scope.$on('runParagraphForLinkParameter', function (event, data) {
+    if ($scope.paragraph.id === data.paragraphId) {
+      $scope.paragraph.settings.params = data.params
+      $scope.runParagraph($scope.getEditorValue(), false, false)
+    }
+  })
 
   $scope.$on('updateParagraphOutput', function(event, data) {
     if ($scope.paragraph.id === data.paragraphId) {

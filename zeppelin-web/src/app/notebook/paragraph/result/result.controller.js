@@ -40,12 +40,14 @@ ResultCtrl.$inject = [
   'ngToast',
   'saveAsService',
   'noteVarShareService',
-  'heliumService'
+  'heliumService',
+  'paragraphResultShareService'
 ];
 
 function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location,
                     $timeout, $compile, $http, $q, $templateRequest, $sce, websocketMsgSrv,
-                    baseUrlSrv, ngToast, saveAsService, noteVarShareService, heliumService) {
+                    baseUrlSrv, ngToast, saveAsService, noteVarShareService,
+                    heliumService, paragraphResultShareService) {
 
   /**
    * Built-in visualizations
@@ -208,6 +210,13 @@ function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location
     }
   });
 
+  $scope.$on('renderLinkParameterToParagraphResult', function (event, data) {
+    if (paragraph.id === data.sourceParagraphId) {
+      tableData.linkedParameters.push(data);
+      renderResult($scope.type, true);
+    }
+  });
+
   var updateData = function(result, config, paragraphRef, index) {
     data = result.data;
     paragraph = paragraphRef;
@@ -245,6 +254,15 @@ function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location
       tableData.loadParagraphResult({type: $scope.type, msg: data});
       $scope.tableDataColumns = tableData.columns;
       $scope.tableDataComment = tableData.comment;
+
+      paragraphResultShareService.put($scope.paragraph.id, tableData.columns)
+
+      if(result.linkedParameters) {
+        tableData.linkedParameters = result.linkedParameters
+      } else {
+        tableData.linkedParameters = []
+      }
+
     } else if ($scope.type === 'IMG') {
       $scope.imageData = data;
     }
@@ -426,6 +444,7 @@ function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location
               };
               builtInViz.instance._emitter = emitter;
               builtInViz.instance._compile = $compile;
+              builtInViz.instance._currentScope = $scope;
               builtInViz.instance._createNewScope = createNewScope;
               var transformation = builtInViz.instance.getTransformation();
               transformation._emitter = emitter;

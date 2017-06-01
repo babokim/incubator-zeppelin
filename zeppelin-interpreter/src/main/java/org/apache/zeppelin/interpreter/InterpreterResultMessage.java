@@ -16,16 +16,27 @@
  */
 package org.apache.zeppelin.interpreter;
 
+import java.util.LinkedList;
+import java.util.List;
+
 /**
  * Interpreter result message
  */
 public class InterpreterResultMessage {
   InterpreterResult.Type type;
   String data;
+  List<LinkedParameter> linkedParameters = new LinkedList<>();
 
   public InterpreterResultMessage(InterpreterResult.Type type, String data) {
     this.type = type;
     this.data = data;
+  }
+
+  public InterpreterResultMessage(InterpreterResult.Type type, String data,
+                                  List<LinkedParameter> linkedParameters) {
+    this.type = type;
+    this.data = data;
+    this.linkedParameters = linkedParameters;
   }
 
   public InterpreterResult.Type getType() {
@@ -34,6 +45,29 @@ public class InterpreterResultMessage {
 
   public String getData() {
     return data;
+  }
+
+  public List<LinkedParameter> getLinkedParameters() {
+    return linkedParameters;
+  }
+
+  public void addLinkParameter(LinkedParameter lp) {
+    boolean replaceFlag = false;
+
+    for (int i = 0; i < this.linkedParameters.size(); i++) {
+      LinkedParameter params = this.linkedParameters.get(i);
+
+      if (params.getSourceParagraphId().equals(lp.getSourceParagraphId()) &&
+              params.getSourceParagraphLinkColumnIdx() == lp.getSourceParagraphLinkColumnIdx()) {
+        this.linkedParameters.set(i, lp);
+        replaceFlag = true;
+        break;
+      }
+    }
+
+    if (replaceFlag == false) {
+      this.linkedParameters.add(lp);
+    }
   }
 
   public String toString() {

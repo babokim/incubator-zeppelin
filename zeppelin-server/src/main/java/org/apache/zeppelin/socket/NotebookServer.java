@@ -16,27 +16,12 @@
  */
 package org.apache.zeppelin.socket;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.servlet.http.HttpServletRequest;
-
 import com.google.common.base.Strings;
+import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
@@ -46,23 +31,11 @@ import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.AngularObjectRegistryListener;
 import org.apache.zeppelin.helium.ApplicationEventListener;
 import org.apache.zeppelin.helium.HeliumPackage;
-import org.apache.zeppelin.interpreter.Interpreter;
-import org.apache.zeppelin.interpreter.InterpreterContextRunner;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterResult;
-import org.apache.zeppelin.interpreter.InterpreterResultMessage;
-import org.apache.zeppelin.interpreter.InterpreterSetting;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.RemoteAngularObjectRegistry;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcessListener;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
-import org.apache.zeppelin.notebook.JobListenerFactory;
-import org.apache.zeppelin.notebook.Folder;
-import org.apache.zeppelin.notebook.Note;
-import org.apache.zeppelin.notebook.Notebook;
-import org.apache.zeppelin.notebook.NotebookAuthorization;
-import org.apache.zeppelin.notebook.NotebookEventListener;
-import org.apache.zeppelin.notebook.Paragraph;
-import org.apache.zeppelin.notebook.ParagraphJobListener;
+import org.apache.zeppelin.notebook.*;
 import org.apache.zeppelin.notebook.repo.NotebookRepo.Revision;
 import org.apache.zeppelin.notebook.socket.Message;
 import org.apache.zeppelin.notebook.socket.Message.OP;
@@ -86,8 +59,15 @@ import org.quartz.SchedulerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Queues;
-import com.google.gson.reflect.TypeToken;
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Zeppelin websocket service.
@@ -350,12 +330,76 @@ public class NotebookServer extends WebSocketServlet
         case WATCHER:
           switchConnectionToWatcher(conn, messagereceived);
           break;
+        case LINK_PARAMETER:
+          linkParameter(conn, userAndRoles, notebook, messagereceived);
+          break;
         default:
           break;
       }
     } catch (Exception e) {
       LOG.error("Can't handle message", e);
     }
+  }
+
+  private void linkParameter(NotebookSocket conn, HashSet<String> userAndRoles,
+                             Notebook notebook, Message messagereceived)
+          throws IOException {
+
+    final String paragraphId = (String) messagereceived.get("sourceParagraphId");
+    if (paragraphId == null) {
+      return;
+    }
+
+    String noteId = getOpenNoteId(conn);
+
+    final Note note = notebook.getNote(noteId);
+    NotebookAuthorization notebookAuthorization = notebook.getNotebookAuthorization();
+    if (!notebookAuthorization.isReader(noteId, userAndRoles)) {
+      permissionError(conn, "read", messagereceived.principal, userAndRoles,
+              notebookAuthorization.getWriters(noteId));
+      return;
+    }
+
+    if (!notebookAuthorization.isWriter(noteId, userAndRoles) &&
+            isParagraphChanged(note.getParagraph(paragraphId), messagereceived)) {
+      permissionError(conn, "write", messagereceived.principal,
+              userAndRoles, notebookAuthorization.getWriters(noteId));
+      return;
+    }
+
+    persistLinkParameterAndBroadcast(notebook, messagereceived, paragraphId, noteId);
+  }
+
+  private void persistLinkParameterAndBroadcast(Notebook notebook, Message messagereceived,
+                                                String paragraphId, String noteId)
+          throws IOException {
+    Note note = notebook.getNote(noteId);
+    Paragraph paragraph = note.getParagraph(paragraphId);
+
+    String resultJson = gson.toJson(paragraph.getReturn());
+    InterpreterResult result = gson.fromJson(resultJson, InterpreterResult.class);
+    List<InterpreterResultMessage> messages = result.message();
+
+    LinkedParameter linkedParameter = new LinkedParameter(
+            (String) messagereceived.get("sourceParagraphId"),
+            ((Double) messagereceived.get("sourceParagraphLinkColumnIdx")).intValue(),
+            (String) messagereceived.get("targetParagraphId"),
+            (List) messagereceived.get("targetParagraphLinkParams"));
+
+    for (int i = 0; i < messages.size(); i++) {
+      InterpreterResultMessage message = messages.get(i);
+      if (message.getType() == InterpreterResult.Type.TABLE) {
+        message.addLinkParameter(linkedParameter);
+        messages.set(i, message);
+        break;
+      }
+    }
+
+    paragraph.setResult(result);
+    note.persist(new AuthenticationInfo(messagereceived.principal));
+
+    broadcast(note.getId(),
+            new Message(OP.RENDER_LINKED_PARAMETER).put("linkedParameter", linkedParameter));
   }
 
   @Override

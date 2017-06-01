@@ -309,8 +309,20 @@ function websocketMsgSrv($rootScope, websocketEvents) {
 
     getInterpreterSettings: function() {
       websocketEvents.sendNewEvent({op: 'GET_INTERPRETER_SETTINGS'});
-    }
+    },
 
+    linkParameter: function (sourceParagraphId, sourceParagraphLinkColumnIdx, targetParagraphId,
+                             targetParagraphLinkParams) {
+      websocketEvents.sendNewEvent({
+        op: 'LINK_PARAMETER',
+        data: {
+          sourceParagraphId: sourceParagraphId,
+          sourceParagraphLinkColumnIdx: sourceParagraphLinkColumnIdx,
+          targetParagraphId: targetParagraphId,
+          targetParagraphLinkParams: targetParagraphLinkParams
+        }
+      })
+    }
   };
 }
 
