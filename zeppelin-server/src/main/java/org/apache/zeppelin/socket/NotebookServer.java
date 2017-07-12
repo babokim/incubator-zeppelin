@@ -345,7 +345,8 @@ public class NotebookServer extends WebSocketServlet
                              Notebook notebook, Message messagereceived)
           throws IOException {
 
-    final String paragraphId = (String) messagereceived.get("sourceParagraphId");
+    final String paragraphId = (String) messagereceived.get("paragraphId");
+
     if (paragraphId == null) {
       return;
     }
@@ -376,30 +377,24 @@ public class NotebookServer extends WebSocketServlet
     Note note = notebook.getNote(noteId);
     Paragraph paragraph = note.getParagraph(paragraphId);
 
-    String resultJson = gson.toJson(paragraph.getReturn());
-    InterpreterResult result = gson.fromJson(resultJson, InterpreterResult.class);
-    List<InterpreterResultMessage> messages = result.message();
-
-    LinkedParameter linkedParameter = new LinkedParameter(
-            (String) messagereceived.get("sourceParagraphId"),
-            ((Double) messagereceived.get("sourceParagraphLinkColumnIdx")).intValue(),
-            (String) messagereceived.get("targetParagraphId"),
-            (List) messagereceived.get("targetParagraphLinkParams"));
-
-    for (int i = 0; i < messages.size(); i++) {
-      InterpreterResultMessage message = messages.get(i);
-      if (message.getType() == InterpreterResult.Type.TABLE) {
-        message.addLinkParameter(linkedParameter);
-        messages.set(i, message);
-        break;
-      }
+    List<LinkedParameter> linkedParameters = new ArrayList<>();
+    for(Map<String, Object> addedLink : (List<Map<String, Object>>)messagereceived.get("addedLinks")) {
+      linkedParameters.add(
+          new LinkedParameter(
+              (String)addedLink.get("linkColumn"), (String)addedLink.get("targetParagraph"),
+              (List)addedLink.get("linkParameters"))
+      );
     }
 
-    paragraph.setResult(result);
+    paragraph.setLinkedParameters(linkedParameters);
+
     note.persist(new AuthenticationInfo(messagereceived.principal));
 
-    broadcast(note.getId(),
-            new Message(OP.RENDER_LINKED_PARAMETER).put("linkedParameter", linkedParameter));
+
+    Message msg = new Message(OP.RENDER_LINKED_PARAMETER);
+    msg.put("paragraphId", paragraphId);
+    msg.put("linkedParameters", linkedParameters);
+    broadcast(note.getId(), msg);
   }
 
   @Override

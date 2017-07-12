@@ -170,17 +170,15 @@ function websocketEvents($rootScope, $websocket, $location, baseUrlSrv) {
       $rootScope.$broadcast('setNoteRevisionResult', data);
     } else if (op === 'RENDER_LINKED_PARAMETER') {
       $rootScope.$broadcast('renderLinkParameterToParagraphResult', {
-        sourceParagraphId: data.linkedParameter.sourceParagraphId,
-        sourceParagraphLinkColumnIdx: data.linkedParameter.sourceParagraphLinkColumnIdx,
-        targetParagraph: data.linkedParameter.targetParagraph,
-        targetParagraphLinkParams: data.linkedParameter.targetParagraphLinkParams
+        paragraphId : data.paragraphId,
+        linkedParameters : data.linkedParameters
       });
     }
   });
 
   websocketCalls.ws.onError(function(event) {
     console.log('error message: ', event);
-    $rootScope.$broadcast('setConnectedStatus', false);
+    $rootScope.$broadcast('setConnectedStatus', false);[]
   });
 
   websocketCalls.ws.onClose(function(event) {

@@ -123,7 +123,7 @@ limitations under the License.
             <span class="shortcut-keys">Ctrl+{{ isMac ? 'Option' : 'Alt'}}+W</span></a>
         </li>
         <li>
-            <a href="" data-toggle="modal" data-target="#{{ paragraph.id }}_linkParameterModal" ng-click="openLinkParameterModal(paragraph.id)">
+            <a href="" data-toggle="modal" data-target="#{{ paragraph.id }}_linkParameterModal" ng-click="openLinkParameterModal(paragraph.id, paragraph.linkedParameters)">
               <span class="icon-share-alt shortcut-icon"></span>Link parameters
             </a>
         </li>

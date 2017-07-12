@@ -155,8 +155,8 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
     }
   };
 
-  $scope.openLinkParameterModal = function(paragraphId) {
-    $rootScope.$broadcast('openLinkParameterModal', paragraphId)
+  $scope.openLinkParameterModal = function(paragraphId, linkedParameters) {
+    $rootScope.$broadcast('openLinkParameterModal', paragraphId, linkedParameters)
   }
 
   $scope.$on('runParagraphForLinkParameter', function (event, data) {
@@ -167,6 +167,7 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
   })
 
   $scope.$on('updateParagraphOutput', function(event, data) {
+
     if ($scope.paragraph.id === data.paragraphId) {
       if (!$scope.paragraph.results) {
         $scope.paragraph.results = {};

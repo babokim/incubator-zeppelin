@@ -17,27 +17,28 @@
 
 package org.apache.zeppelin.notebook;
 
-import com.google.common.collect.Maps;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.Maps;
 import com.google.gson.internal.StringMap;
 import org.apache.commons.lang.StringUtils;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
-import org.apache.zeppelin.helium.HeliumPackage;
-import org.apache.zeppelin.interpreter.InterpreterResult.Type;
-import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
-import org.apache.zeppelin.user.AuthenticationInfo;
-import org.apache.zeppelin.user.Credentials;
-import org.apache.zeppelin.user.UserCredentials;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.display.Input;
+import org.apache.zeppelin.helium.HeliumPackage;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.Interpreter.FormType;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.interpreter.InterpreterResult.Type;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.JobListener;
 import org.apache.zeppelin.scheduler.Scheduler;
+import org.apache.zeppelin.user.AuthenticationInfo;
+import org.apache.zeppelin.user.Credentials;
+import org.apache.zeppelin.user.UserCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,8 +46,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Paragraph is a representation of an execution unit.
@@ -75,6 +74,8 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   // For backward compatibility of note.json format after ZEPPELIN-212
   Object result;
+
+  List<LinkedParameter> linkedParameters;
 
   /**
    * Applicaiton states in this paragraph
@@ -473,8 +474,10 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     }
   }
 
+
   private String resultToCsv(String resultMessage) {
     StringBuilder sb = new StringBuilder();
+
     String[] lines = resultMessage.split("\n");
 
     for (String eachLine: lines) {
@@ -675,9 +678,19 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     this.config = config;
   }
 
+
+  public List<LinkedParameter> getLinkedParameters() {
+    return linkedParameters;
+  }
+
+  public void setLinkedParameters(List<LinkedParameter> linkedParameters) {
+    this.linkedParameters = linkedParameters;
+  }
+
   public void setReturn(InterpreterResult value, Throwable t) {
     setResult(value);
     setException(t);
+
   }
 
   @Override

@@ -73,7 +73,7 @@
             <tr ng-repeat="addedLink in data.addedLinks">
               <td class="col-xs-2">{{ addedLink.linkColumn }}</td>
               <td class="col-xs-2">{{ addedLink.targetParagraph }}</td>
-              <td class="col-xs-6">{{ addedLink.linkParameters }}</td>
+              <td class="col-xs-6" style="word-break: break-all;">{{ addedLink.linkParameters }}</td>
               <td class="col-xs-2">
                 <a href="" class="btn btn-danger" ng-click="deleteLink($index)">
                   <span class="glyphicon glyphicon-minus"></span>
@@ -85,7 +85,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" ng-click="applyLink(paragraph.id)">Apply & Close</button>
       </div>
     </div>
   </div>

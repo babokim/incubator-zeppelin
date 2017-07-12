@@ -211,8 +211,9 @@ function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location
   });
 
   $scope.$on('renderLinkParameterToParagraphResult', function (event, data) {
-    if (paragraph.id === data.sourceParagraphId) {
-      tableData.linkedParameters.push(data);
+    if (paragraph.id === data.paragraphId) {
+      paragraph.linkedParameters = data.linkedParameters;
+      tableData.linkedParameters = data.linkedParameters;
       renderResult($scope.type, true);
     }
   });
@@ -255,10 +256,10 @@ function ResultCtrl($scope, $rootScope, $route, $window, $routeParams, $location
       $scope.tableDataColumns = tableData.columns;
       $scope.tableDataComment = tableData.comment;
 
-      paragraphResultShareService.put($scope.paragraph.id, tableData.columns)
+      paragraphResultShareService.put($scope.paragraph.id, tableData.columns);
 
-      if(result.linkedParameters) {
-        tableData.linkedParameters = result.linkedParameters
+      if(paragraph.linkedParameters) {
+        tableData.linkedParameters = paragraph.linkedParameters
       } else {
         tableData.linkedParameters = []
       }

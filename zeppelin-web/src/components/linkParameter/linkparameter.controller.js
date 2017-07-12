@@ -7,7 +7,7 @@ function LinkParameterCtrl ($scope, $rootScope, paragraphResultShareService, web
 
   $scope.data = null;
 
-  function init(paragraphId) {
+  function init(paragraphId, linkedParameters) {
     $scope.data = {
       selectedLinkColumn: null,
       paragraph: null,
@@ -28,6 +28,18 @@ function LinkParameterCtrl ($scope, $rootScope, paragraphResultShareService, web
           $scope.data.availableLinkColumns.push({
             idx: paragraphResults[i].index, name: paragraphResults[i].name
           });
+        }
+      }
+
+      if(linkedParameters) {
+        for(var i = 0; i < linkedParameters.length; i++) {
+          var addingLink = {
+            linkColumn: linkedParameters[i].sourceParagraphLinkColumn,
+            targetParagraph: linkedParameters[i].targetParagraphId,
+            linkParameters: linkedParameters[i].parameters
+          };
+
+          $scope.data.addedLinks.push(addingLink);
         }
       }
     }
@@ -65,14 +77,22 @@ function LinkParameterCtrl ($scope, $rootScope, paragraphResultShareService, web
     };
 
     $scope.data.addedLinks.push(addingLink);
-    websocketMsgSrv.linkParameter(paragraphId, selectedLinkColumn.idx, $scope.data.paragraph, linkParameters);
+
+    $scope.data.linkParameterRows = [{
+      column : '',
+      inputName : ''
+    }];
+  };
+
+  $scope.applyLink = function(paragraphId) {
+    websocketMsgSrv.linkParameter(paragraphId, $scope.data.addedLinks);
   };
 
   $scope.deleteLink = function(index) {
     $scope.data.addedLinks.splice(index, 1);
   };
 
-  $scope.$on('openLinkParameterModal', function (event, paragraphId) {
-    init(paragraphId);
+  $scope.$on('openLinkParameterModal', function (event, paragraphId, linkedParameters) {
+    init(paragraphId, linkedParameters);
   });
 }

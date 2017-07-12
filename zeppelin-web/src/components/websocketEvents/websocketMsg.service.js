@@ -311,17 +311,14 @@ function websocketMsgSrv($rootScope, websocketEvents) {
       websocketEvents.sendNewEvent({op: 'GET_INTERPRETER_SETTINGS'});
     },
 
-    linkParameter: function (sourceParagraphId, sourceParagraphLinkColumnIdx, targetParagraphId,
-                             targetParagraphLinkParams) {
+    linkParameter: function (paragraphId, addedLinks) {
       websocketEvents.sendNewEvent({
         op: 'LINK_PARAMETER',
         data: {
-          sourceParagraphId: sourceParagraphId,
-          sourceParagraphLinkColumnIdx: sourceParagraphLinkColumnIdx,
-          targetParagraphId: targetParagraphId,
-          targetParagraphLinkParams: targetParagraphLinkParams
+          paragraphId: paragraphId,
+          addedLinks: addedLinks
         }
-      })
+      });
     }
   };
 }
