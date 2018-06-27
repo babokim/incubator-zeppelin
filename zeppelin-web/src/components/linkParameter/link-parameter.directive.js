@@ -14,9 +14,11 @@ function linkParams () {
     },
     controller: ['$rootScope', '$scope', function ($rootScope, $scope) {
       $scope.link = function() {
-        $rootScope.$broadcast('runParagraphForLinkParameter', {
-          paragraphId: $scope.paragraphId,
-          params: JSON.parse($scope.params)
+        $scope.paragraphId.split(',').forEach(function(paragraphId) {
+          $rootScope.$broadcast('runParagraphForLinkParameter', {
+            paragraphId: paragraphId.trim(),
+            params: JSON.parse($scope.params)
+          });
         });
       }
     }]
