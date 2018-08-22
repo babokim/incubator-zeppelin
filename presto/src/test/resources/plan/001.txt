@@ -1,0 +1,72 @@
+hive.csl.sale_mst.order_date
+hive.csl.sale_mst.estimate_sale_amt
+hive.csl.sale_mst.shop_code
+hive.csl.sale_mst.brand_code
+hive.csl.shop_detail.area
+hive.csl.shop_detail.code
+hive.csl.shop_detail.brand_code
+hive.csl.shop_detail.retail_name
+=====
+
+ - Output[shop_code, area, retail_name, brand_code, average_daily_sales_per_square] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double]
+         brand_code := brand_code_14
+         average_daily_sales_per_square := avg
+     - TopN[4000 by (avg DESC_NULLS_LAST)] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double]
+         - LocalExchange[SINGLE] () => shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double
+             - RemoteExchange[GATHER] => shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double
+                 - TopN[4000 by (avg DESC_NULLS_LAST)] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double]
+                     - Project[] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg:double]
+                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                         - Aggregate(FINAL)[shop_code, area, retail_name, brand_code_14][$hashvalue] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, $hashvalue:bigint, avg:double]
+                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                 avg := "avg"("avg_70")
+                             - LocalExchange[HASH][$hashvalue] ("shop_code", "area", "retail_name", "brand_code_14") => shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, avg_70:row(double, bigint), $hashvalue:bigint
+                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                 - Aggregate(PARTIAL)[shop_code, area, retail_name, brand_code_14][$hashvalue_80] => [shop_code:varchar, area:varchar, retail_name:varchar, brand_code_14:varchar, $hashvalue_80:bigint, avg_70:row(double, bigint)]
+                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                         avg_70 := "avg"("expr_21")
+                                     - Project[] => [shop_code:varchar, area:varchar, expr_21:double, retail_name:varchar, brand_code_14:varchar, $hashvalue_80:bigint]
+                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                             expr_21 := (CAST("sum" AS double) / CAST("area" AS double))
+                                             $hashvalue_80 := "combine_hash"("combine_hash"("combine_hash"("combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code"), 0)), COALESCE("$operator$hash_code"("area"), 0)), COALESCE("$operator$hash_code"("retail_name"), 0)), COALESCE("$operator$hash_code"("brand_code_14"), 0))
+                                         - InnerJoin[("shop_code" = "code")][$hashvalue_72, $hashvalue_77] => [shop_code:varchar, sum:decimal(38,0), brand_code_14:varchar, retail_name:varchar, area:varchar]
+                                                 Distribution: PARTITIONED
+                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                             - RemoteExchange[REPARTITION][$hashvalue_72] => shop_code:varchar, sum:decimal(38,0), $hashvalue_72:bigint
+                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                 - Project[] => [shop_code:varchar, sum:decimal(38,0), $hashvalue_76:bigint]
+                                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                         $hashvalue_76 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code"), 0))
+                                                     - Aggregate(FINAL)[shop_code, order_date][$hashvalue_73] => [shop_code:varchar, order_date:varchar, $hashvalue_73:bigint, sum:decimal(38,0)]
+                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                             sum := "sum"("sum_71")
+                                                         - LocalExchange[HASH][$hashvalue_73] ("shop_code", "order_date") => shop_code:varchar, order_date:varchar, sum_71:varbinary, $hashvalue_73:bigint
+                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                             - RemoteExchange[REPARTITION][$hashvalue_74] => shop_code:varchar, order_date:varchar, sum_71:varbinary, $hashvalue_74:bigint
+                                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                 - Aggregate(PARTIAL)[shop_code, order_date][$hashvalue_75] => [shop_code:varchar, order_date:varchar, $hashvalue_75:bigint, sum_71:varbinary]
+                                                                         Cost: {rows: ? (?), cpu: 0.00, memory: ?, network: 0.00}
+                                                                         sum_71 := "sum"("expr")
+                                                                     - ScanProject[table = hive:csl:sale_mst, originalConstraint = (("order_date" >= CAST('20180704' AS varchar)) AND ("order_date" < CAST('20180726' AS varchar)))] => [shop_code:varchar, order_date:varchar, expr:decimal(38,0), $hashvalue_75:bigint]
+                                                                             Cost: {rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}/{rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}
+                                                                             expr := CAST("estimate_sale_amt" AS decimal)
+                                                                             $hashvalue_75 := "combine_hash"("combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code"), 0)), COALESCE("$operator$hash_code"("order_date"), 0))
+                                                                             LAYOUT: csl.sale_mst
+                                                                             order_date := HiveColumnHandle{name=order_date, hiveType=string, hiveColumnIndex=-1, columnType=PARTITION_KEY}
+                                                                                 :: [[20180704], [20180705], [20180706], [20180707], [20180708], [20180709], [20180710], [20180711], [20180712], [20180713], [20180714], [20180715], [20180716], [20180717], [20180718], [20180719], [20180720], [20180721], [20180722], [20180723], [20180724], [20180725]]
+                                                                             estimate_sale_amt := HiveColumnHandle{name=estimate_sale_amt, hiveType=string, hiveColumnIndex=17, columnType=REGULAR}
+                                                                             shop_code := HiveColumnHandle{name=shop_code, hiveType=string, hiveColumnIndex=2, columnType=REGULAR}
+                                                                             HiveColumnHandle{name=brand_code, hiveType=string, hiveColumnIndex=-1, columnType=PARTITION_KEY}
+                                                                                 :: [[BC], [CI], [CO], [EC], [EE], [EH], [EK], [EL], [GL], [KW], [MB], [MC], [MD], [NC], [PB], [PC], [PD], [PO], [PR], [Q3], [RA], [RC], [SA], [SF], [SM], [T0], [TN], [TT], [TZ], [WA]]
+                                             - LocalExchange[HASH][$hashvalue_77] ("code") => brand_code_14:varchar, code:varchar, retail_name:varchar, area:varchar, $hashvalue_77:bigint
+                                                     Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: ?}
+                                                 - RemoteExchange[REPARTITION][$hashvalue_78] => brand_code_14:varchar, code:varchar, retail_name:varchar, area:varchar, $hashvalue_78:bigint
+                                                         Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: ?}
+                                                     - ScanFilterProject[table = hive:csl:shop_detail, originalConstraint = true, filterPredicate = (CAST("area" AS double) > 1E1)] => [brand_code_14:varchar, code:varchar, retail_name:varchar, area:varchar, $hashvalue_79:bigint]
+                                                             Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}
+                                                             $hashvalue_79 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("code"), 0))
+                                                             LAYOUT: csl.shop_detail
+                                                             area := HiveColumnHandle{name=area, hiveType=string, hiveColumnIndex=17, columnType=REGULAR}
+                                                             code := HiveColumnHandle{name=code, hiveType=string, hiveColumnIndex=1, columnType=REGULAR}
+                                                             brand_code_14 := HiveColumnHandle{name=brand_code, hiveType=string, hiveColumnIndex=0, columnType=REGULAR}
+                                                             retail_name := HiveColumnHandle{name=retail_name, hiveType=string, hiveColumnIndex=8, columnType=REGULAR}

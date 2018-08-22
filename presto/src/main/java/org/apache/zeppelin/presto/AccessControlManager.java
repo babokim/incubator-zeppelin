@@ -204,7 +204,7 @@ public class AccessControlManager {
           userGrantedColumns.put(tableFqn, tableColumns);
         }
 
-        LOG.info("Add column permission: " + userOrGroup + "," + tableFqn + "." + column);
+        //LOG.info("Add column permission: " + userOrGroup + "," + tableFqn + "." + column);
         tableColumns.add(column);
       }
     }
@@ -228,7 +228,7 @@ public class AccessControlManager {
           userGrantedTables = new HashSet<String>();
           grantedTables.put(userOrGroup, userGrantedTables);
         }
-        LOG.info("Add table permission: " + userOrGroup + "," + tableFqn);
+        //LOG.info("Add table permission: " + userOrGroup + "," + tableFqn);
         userGrantedTables.add(tableFqn);
       }
     }
@@ -250,7 +250,7 @@ public class AccessControlManager {
         userGrantedOperations.put(schemaFqn, schemaOperations);
       }
 
-      LOG.info("Add catalog permission: " + userOrGroup + "," + eachPermission);
+      //LOG.info("Add catalog permission: " + userOrGroup + "," + eachPermission);
       schemaOperations.add(Operation.getOperation(eachPermission));
     }
   }
@@ -265,7 +265,6 @@ public class AccessControlManager {
 
   public AclResult checkAcl(String sql, String queryPlan, String principal,
                             StringBuilder errorMessage) throws IOException {
-
     if (!"true".equals(interpreterProperties.get(PrestoInterpreter.PRESTO_ACL_ENABLE))) {
       return AclResult.OK;
     }
@@ -359,10 +358,11 @@ public class AccessControlManager {
     }
   }
 
-  private boolean isScanOperator(String line) {
+  protected boolean isScanOperator(String line) {
     return line.startsWith("ScanFilterProject") ||
         line.startsWith("ScanFilter") ||
-        line.startsWith("TableScan");
+        line.startsWith("TableScan") ||
+        line.startsWith("ScanProject");
   }
 
   public String getSchemaFromTableCommitPlan(String currentLine) {
@@ -379,7 +379,7 @@ public class AccessControlManager {
     String[] schemaTableTokens = tokens[1].split("\\.");
     String schema = schemaTableTokens[0];
 
-    LOG.debug("Parsed: " + catalog + "." + schema);
+    //LOG.debug("Parsed: " + catalog + "." + schema);
     return catalog + "." + schema;
   }
 
@@ -408,6 +408,8 @@ public class AccessControlManager {
       line = currentLine.substring("ScanFilterProject[table = ".length());
     } else if (currentLine.startsWith("ScanFilter[table = ")) {
       line = currentLine.substring("ScanFilter[table = ".length());
+    } else if (currentLine.startsWith("ScanProject[table = ")) {
+      line = currentLine.substring("ScanProject[table = ".length());
     } else if  (currentLine.startsWith("TableScan[")) {
       line = currentLine.substring("TableScan[".length());
     }
@@ -425,12 +427,14 @@ public class AccessControlManager {
         table = subTokens[1];
       }
     } else if (tokens.length == 3) {
-      catalog = tokens[1];
-      String[] subTokens = tokens[2].split("\\.");
-      if (subTokens.length == 2) {
-        schema = subTokens[0];
-        table = subTokens[1];
-      }
+      catalog = tokens[0];
+//      String[] subTokens = tokens[2].split("\\.");
+//      if (subTokens.length == 2) {
+//        schema = subTokens[0];
+//        table = subTokens[1];
+//      }
+      schema = tokens[1];
+      table = tokens[2];
     } else if (tokens.length > 3) {
       catalog = tokens[1];
       schema = tokens[2];
@@ -444,13 +448,36 @@ public class AccessControlManager {
     if (table == null) {
       throw new IOException("Can't get table name from [" + currentLine + "]");
     }
-    int columnIndex = line.lastIndexOf("=> [");
-    String[] columnTokens = line.substring(columnIndex + 4, line.getBytes().length - 1).split(",");
+    // <Presto-0.168>
+//    List<String> resources = new ArrayList<String>();
+//    int columnIndex = line.lastIndexOf("=> [");
+//    String[] columnTokens = line.substring(columnIndex + 4, line.getBytes().length - 1).split(",");
+//    for (String columnToken: columnTokens) {
+//      String[] columnInfo = columnToken.trim().split(":");
+//      String columnName = columnInfo[0];
+//      LOG.debug("Parsed: " + catalog + "." + schema + "." + table + "." + columnName.trim());
+//      resources.add(catalog + "." + schema + "." + table + "." + columnName.trim());
+//    }
+//    return resources;
+    // </Presto-0.168>
+
     List<String> resources = new ArrayList<String>();
-    for (String columnToken: columnTokens) {
-      String[] columnInfo = columnToken.trim().split(":");
+    String columnInfoLine = null;
+    while ( (columnInfoLine = reader.readLine()) != null ) {
+      columnInfoLine = columnInfoLine.trim();
+      if (columnInfoLine.trim().startsWith("-")) {
+        lastReadLine.append(columnInfoLine);
+        return resources;
+      }
+      if (columnInfoLine.indexOf("ColumnHandle{name=") < 0) {
+        continue;
+      }
+
+      int index = columnInfoLine.indexOf("ColumnHandle{name=");
+      columnInfoLine = columnInfoLine.substring(index + "ColumnHandle{name=".length());
+      String[] columnInfo = columnInfoLine.trim().split(",");
       String columnName = columnInfo[0];
-      LOG.debug("Parsed: " + catalog + "." + schema + "." + table + "." + columnName.trim());
+      LOG.info("Parsed: " + catalog + "." + schema + "." + table + "." + columnName.trim());
       resources.add(catalog + "." + schema + "." + table + "." + columnName.trim());
     }
 

@@ -1,0 +1,153 @@
+hive.csl.shop.brand_code
+hive.csl.shop.shop_type_code
+hive.csl.shop.branch_code
+hive.csl.shop.shop_code
+hive.csl.shop.close_date
+hive.csl.shop.shop_status_code
+hive.csl.sale_mst.shop_code
+hive.csl.sale_mst.brand_code
+hive.csl.sale_mst.order_date
+
+=====
+
+ - Output[orderDate, BG, ChannelType, UpT, vCustomers, sUnits, ACS, sAmts, sShops, SalesPerShop] => [concat_222:varchar, expr:varchar(2), expr_6:varchar(10), round_225:double, round_226:double, avg_157:decimal(38,2), round_227:double, avg_162:decimal(38,2), count_133:bigint, expr_228:decimal(38,2)]
+         orderDate := concat_222
+         BG := expr
+         ChannelType := expr_6
+         UpT := round_225
+         vCustomers := round_226
+         sUnits := avg_157
+         ACS := round_227
+         sAmts := avg_162
+         sShops := count_133
+         SalesPerShop := expr_228
+     - TopN[1000 by (concat_222 DESC_NULLS_LAST, expr ASC_NULLS_LAST, expr_6 ASC_NULLS_LAST)] => [expr:varchar(2), expr_6:varchar(10), concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint]
+         - LocalExchange[SINGLE] () => expr:varchar(2), expr_6:varchar(10), concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint
+             - TopN[1000 by (concat_222 DESC_NULLS_LAST, expr ASC_NULLS_LAST, expr_6 ASC_NULLS_LAST)] => [expr:varchar(2), expr_6:varchar(10), concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint]
+                 - Project[] => [expr:varchar(2), expr_6:varchar(10), concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint]
+                     - LocalExchange[ROUND_ROBIN] () => expr:varchar(2), expr_6:varchar(10), order_date:varchar, concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint
+                         - RemoteMerge[expr ASC_NULLS_LAST, expr_6 ASC_NULLS_LAST, order_date ASC_NULLS_LAST] => [expr:varchar(2), expr_6:varchar(10), order_date:varchar, concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint]
+                             - Project[] => [expr:varchar(2), expr_6:varchar(10), order_date:varchar, concat_222:varchar, round_225:double, round_226:double, round_227:double, expr_228:decimal(38,2), avg_157:decimal(38,2), avg_162:decimal(38,2), count_133:bigint]
+                                     concat_222 := "concat"("order_date", CAST('d' AS varchar))
+                                     round_225 := "round"((CAST("avg_157" AS double) / "avg"), 2)
+                                     round_226 := "round"("avg", 2)
+                                     round_227 := "round"((CAST("avg_162" AS double) / "avg"), 2)
+                                     expr_228 := ("avg_162" / CAST("count_133" AS decimal(19,0)))
+                                 - LocalMerge[expr ASC_NULLS_LAST, expr_6 ASC_NULLS_LAST, order_date ASC_NULLS_LAST] => [order_date:varchar, expr:varchar(2), expr_6:varchar(10), count_133:bigint, avg_162:decimal(38,2), avg_157:decimal(38,2), avg:double]
+                                     - PartialSort[expr ASC_NULLS_LAST, expr_6 ASC_NULLS_LAST, order_date ASC_NULLS_LAST] => [order_date:varchar, expr:varchar(2), expr_6:varchar(10), count_133:bigint, avg_162:decimal(38,2), avg_157:decimal(38,2), avg:double]
+                                         - RemoteExchange[REPARTITION] => order_date:varchar, expr:varchar(2), expr_6:varchar(10), count_133:bigint, avg_162:decimal(38,2), avg_157:decimal(38,2), avg:double
+                                             - Project[] => [order_date:varchar, expr:varchar(2), expr_6:varchar(10), count_133:bigint, avg_162:decimal(38,2), avg_157:decimal(38,2), avg:double]
+                                                 - Window[partition by (expr, expr_6)][$hashvalue] => [order_date:varchar, expr:varchar(2), expr_6:varchar(10), count:bigint, sum:decimal(38,2), sum_10:decimal(38,2), count_133:bigint, expr_152:integer, $hashvalue:bigint, avg_162:decimal(38,2), avg_157:decimal(38,2), avg:double]
+                                                         avg_162 := avg("sum_10") ROWS 6 PRECEDING CURRENT_ROW
+                                                         avg_157 := avg("sum") ROWS 6 PRECEDING CURRENT_ROW
+                                                         avg := avg("count") ROWS 6 PRECEDING CURRENT_ROW
+                                                     - LocalExchange[HASH][$hashvalue] ("expr", "expr_6") => order_date:varchar, expr:varchar(2), expr_6:varchar(10), count:bigint, sum:decimal(38,2), sum_10:decimal(38,2), count_133:bigint, expr_152:integer, $hashvalue:bigint
+                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                         - Project[] => [order_date:varchar, expr:varchar(2), expr_6:varchar(10), count:bigint, sum:decimal(38,2), sum_10:decimal(38,2), count_133:bigint, expr_152:integer, $hashvalue_237:bigint]
+                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                 expr_152 := 6
+                                                             - InnerJoin[("expr" = "expr_128") AND ("expr_6" = "expr_129")][$hashvalue_237, $hashvalue_247] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), count:bigint, sum:decimal(38,2), sum_10:decimal(38,2), $hashvalue_237:bigint, count_133:bigint]
+                                                                     Distribution: PARTITIONED
+                                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                 - RemoteExchange[REPARTITION][$hashvalue_237] => expr:varchar(2), order_date:varchar, expr_6:varchar(10), count:bigint, sum:decimal(38,2), sum_10:decimal(38,2), $hashvalue_237:bigint
+                                                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                     - Project[] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), sum_10:decimal(38,2), count:bigint, sum:decimal(38,2), $hashvalue_246:bigint]
+                                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                             $hashvalue_246 := "combine_hash"("combine_hash"(bigint '0', COALESCE("$operator$hash_code"("expr"), 0)), COALESCE("$operator$hash_code"("expr_6"), 0))
+                                                                         - Aggregate(FINAL)[expr, order_date, expr_6][$hashvalue_238] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), $hashvalue_238:bigint, sum_10:decimal(38,2), count:bigint, sum:decimal(38,2)]
+                                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                 sum_10 := "sum"("sum_234")
+                                                                                 count := "count"("count_232")
+                                                                                 sum := "sum"("sum_233")
+                                                                             - LocalExchange[HASH][$hashvalue_238] ("expr", "order_date", "expr_6") => expr:varchar(2), order_date:varchar, expr_6:varchar(10), sum_234:varbinary, sum_233:varbinary, count_232:bigint, $hashvalue_238:bigint
+                                                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                 - RemoteExchange[REPARTITION][$hashvalue_239] => expr:varchar(2), order_date:varchar, expr_6:varchar(10), sum_234:varbinary, sum_233:varbinary, count_232:bigint, $hashvalue_239:bigint
+                                                                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                     - Aggregate(PARTIAL)[expr, order_date, expr_6][$hashvalue_245] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), $hashvalue_245:bigint, sum_234:varbinary, sum_233:varbinary, count_232:bigint]
+                                                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                             sum_234 := "sum"("expr_8")
+                                                                                             sum_233 := "sum"("expr_7")
+                                                                                             count_232 := "count"(*)
+                                                                                         - Project[] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), expr_7:decimal(12,2), expr_8:decimal(10,2), $hashvalue_245:bigint]
+                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                 $hashvalue_245 := "combine_hash"("combine_hash"("combine_hash"(bigint '0', COALESCE("$operator$hash_code"("expr"), 0)), COALESCE("$operator$hash_code"("order_date"), 0)), COALESCE("$operator$hash_code"("expr_6"), 0))
+                                                                                             - Project[] => [expr:varchar(2), order_date:varchar, expr_6:varchar(10), expr_7:decimal(12,2), expr_8:decimal(10,2)]
+                                                                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                     expr := (CASE WHEN ("brand_code" IN (CAST('TZ' AS varchar), CAST('TP' AS varchar), CAST('TN' AS varchar), CAST('TT' AS varchar), CAST('T0' AS varchar))) THEN 'TW' ELSE 'EL' END)
+                                                                                                     expr_6 := (CASE WHEN ("shop_type_code" IN (CAST('02  ' AS varchar), CAST('04  ' AS varchar))) THEN 'Off-Mallet' WHEN ("shop_type_code" = CAST('05  ' AS varchar)) THEN CAST('Onn-Mall' AS varchar(10)) ELSE CAST('Off-Dept' AS varchar(10)) END)
+                                                                                                     expr_7 := (CASE WHEN ("sale_qty" = CAST('0' AS varchar)) THEN CAST(DECIMAL '1.00' AS decimal(12,2)) ELSE CAST(CAST("sale_qty" AS decimal(10,2)) AS decimal(12,2)) END)
+                                                                                                     expr_8 := CAST("estimate_sale_amt" AS decimal(10,2))
+                                                                                                 - InnerJoin[("shop_code" = "shop_code_1")][$hashvalue_240, $hashvalue_242] => [sale_qty:varchar, estimate_sale_amt:varchar, order_date:varchar, brand_code:varchar, shop_type_code:varchar]
+                                                                                                         Distribution: PARTITIONED
+                                                                                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                     - RemoteExchange[REPARTITION][$hashvalue_240] => shop_code:varchar, sale_qty:varchar, estimate_sale_amt:varchar, order_date:varchar, brand_code:varchar, $hashvalue_240:bigint
+                                                                                                             Cost: {rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}
+                                                                                                         - Project[] => [shop_code:varchar, sale_qty:varchar, estimate_sale_amt:varchar, order_date:varchar, brand_code:varchar, $hashvalue_241:bigint]
+                                                                                                                 Cost: {rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}
+                                                                                                                 $hashvalue_241 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code"), 0))
+                                                                                                             - Values => [shop_code:varchar, sale_qty:varchar, estimate_sale_amt:varchar, order_date:varchar, brand_code:varchar]
+                                                                                                                     Cost: {rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}
+                                                                                                     - LocalExchange[HASH][$hashvalue_242] ("shop_code_1") => shop_code_1:varchar, shop_type_code:varchar, $hashvalue_242:bigint
+                                                                                                             Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: ?}
+                                                                                                         - RemoteExchange[REPARTITION][$hashvalue_243] => shop_code_1:varchar, shop_type_code:varchar, $hashvalue_243:bigint
+                                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: ?}
+                                                                                                             - ScanProject[table = hive:csl:shop, originalConstraint = true] => [shop_code_1:varchar, shop_type_code:varchar, $hashvalue_244:bigint]
+                                                                                                                     Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}
+                                                                                                                     $hashvalue_244 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code_1"), 0))
+                                                                                                                     LAYOUT: csl.shop
+                                                                                                                     shop_code_1 := HiveColumnHandle{name=shop_code, hiveType=string, hiveColumnIndex=1, columnType=REGULAR}
+                                                                                                                     shop_type_code := HiveColumnHandle{name=shop_type_code, hiveType=string, hiveColumnIndex=31, columnType=REGULAR}
+                                                                 - Aggregate(FINAL)[expr_128, expr_129][$hashvalue_247] => [expr_128:varchar(2), expr_129:varchar(10), $hashvalue_247:bigint, count_133:bigint]
+                                                                         count_133 := "count"("count_235")
+                                                                     - LocalExchange[HASH][$hashvalue_247] ("expr_128", "expr_129") => expr_128:varchar(2), expr_129:varchar(10), count_235:bigint, $hashvalue_247:bigint
+                                                                         - RemoteExchange[REPARTITION][$hashvalue_248] => expr_128:varchar(2), expr_129:varchar(10), count_235:bigint, $hashvalue_248:bigint
+                                                                             - Aggregate(PARTIAL)[expr_128, expr_129][$hashvalue_256] => [expr_128:varchar(2), expr_129:varchar(10), $hashvalue_256:bigint, count_235:bigint]
+                                                                                     count_235 := "count"(*)
+                                                                                 - Project[] => [expr_128:varchar(2), expr_129:varchar(10), $hashvalue_256:bigint]
+                                                                                         $hashvalue_256 := "combine_hash"("combine_hash"(bigint '0', COALESCE("$operator$hash_code"("expr_128"), 0)), COALESCE("$operator$hash_code"("expr_129"), 0))
+                                                                                     - Project[] => [expr_128:varchar(2), expr_129:varchar(10)]
+                                                                                             expr_128 := (CASE WHEN ("brand_code_35" IN (CAST('TZ' AS varchar), CAST('TP' AS varchar), CAST('TN' AS varchar), CAST('TT' AS varchar), CAST('T0' AS varchar))) THEN 'TW' ELSE 'EL' END)
+                                                                                             expr_129 := (CASE WHEN ("shop_type_code_66" IN (CAST('02  ' AS varchar), CAST('04  ' AS varchar))) THEN 'Off-Mallet' WHEN ("shop_type_code_66" = CAST('05  ' AS varchar)) THEN CAST('Onn-Mall' AS varchar(10)) ELSE CAST('Off-Dept' AS varchar(10)) END)
+                                                                                         - FilterProject[filterPredicate = "expr_127"] => [brand_code_35:varchar, shop_type_code_66:varchar]
+                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}/{rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                             - Project[] => [brand_code_35:varchar, shop_code_36:varchar, shop_type_code_66:varchar, expr_127:boolean]
+                                                                                                 - SemiJoin[shop_code_36 = shop_code_73][$hashvalue_249, $hashvalue_251] => [brand_code_35:varchar, shop_code_36:varchar, shop_type_code_66:varchar, $hashvalue_249:bigint, expr_127:boolean]
+                                                                                                     - RemoteExchange[REPARTITION][$hashvalue_249] => brand_code_35:varchar, shop_code_36:varchar, shop_type_code_66:varchar, $hashvalue_249:bigint
+                                                                                                             Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: ?}
+                                                                                                         - ScanFilterProject[table = hive:csl:shop, originalConstraint = ((("shop_status_code_43" = CAST('02' AS varchar)) AND ("concat"("concat"(CAST('a' AS varchar), "shop_type_code_66"), CAST('z' AS varchar)) IN (CAST('a01  z' AS varchar), CAST('a02  z' AS va
+                                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}/{rows: ? (?), cpu: ?, memory: 0.00, network: 0.00}
+                                                                                                                 $hashvalue_250 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code_36"), 0))
+                                                                                                                 LAYOUT: csl.shop
+                                                                                                                 shop_type_code_66 := HiveColumnHandle{name=shop_type_code, hiveType=string, hiveColumnIndex=31, columnType=REGULAR}
+                                                                                                                 brand_code_35 := HiveColumnHandle{name=brand_code, hiveType=string, hiveColumnIndex=0, columnType=REGULAR}
+                                                                                                                 close_date_48 := HiveColumnHandle{name=close_date, hiveType=string, hiveColumnIndex=13, columnType=REGULAR}
+                                                                                                                 branch_code_53 := HiveColumnHandle{name=branch_code, hiveType=string, hiveColumnIndex=18, columnType=REGULAR}
+                                                                                                                     :: [(<min>, ), (, <max>)]
+                                                                                                                 shop_status_code_43 := HiveColumnHandle{name=shop_status_code, hiveType=string, hiveColumnIndex=8, columnType=REGULAR}
+                                                                                                                     :: [[02]]
+                                                                                                                 shop_code_36 := HiveColumnHandle{name=shop_code, hiveType=string, hiveColumnIndex=1, columnType=REGULAR}
+                                                                                                     - LocalExchange[SINGLE] () => shop_code_73:varchar, $hashvalue_251:bigint
+                                                                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                         - RemoteExchange[REPARTITION - REPLICATE NULLS AND ANY][$hashvalue_252] => shop_code_73:varchar, $hashvalue_252:bigint
+                                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                             - FilterProject[filterPredicate = ("count_121" > BIGINT '0')] => [shop_code_73:varchar, $hashvalue_253:bigint]
+                                                                                                                     Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}/{rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                                 - Aggregate(FINAL)[shop_code_73][$hashvalue_253] => [shop_code_73:varchar, $hashvalue_253:bigint, count_121:bigint]
+                                                                                                                         Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                                         count_121 := "count"("count_236")
+                                                                                                                     - LocalExchange[HASH][$hashvalue_253] ("shop_code_73") => shop_code_73:varchar, count_236:bigint, $hashvalue_253:bigint
+                                                                                                                             Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                                         - RemoteExchange[REPARTITION][$hashvalue_254] => shop_code_73:varchar, count_236:bigint, $hashvalue_254:bigint
+                                                                                                                                 Cost: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                                                                                                                             - Aggregate(PARTIAL)[shop_code_73][$hashvalue_255] => [shop_code_73:varchar, $hashvalue_255:bigint, count_236:bigint]
+                                                                                                                                     Cost: {rows: ? (?), cpu: 0.00, memory: ?, network: 0.00}
+                                                                                                                                     count_236 := "count"(*)
+                                                                                                                                 - ScanProject[table = hive:csl:sale_mst, originalConstraint = ("order_date_116" BETWEEN CAST('20171115' AS varchar) AND CAST('20171115' AS varchar))] => [shop_code_73:varchar, $hashvalue_255:bigint]
+                                                                                                                                         Cost: {rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}/{rows: 0 (0B), cpu: 0.00, memory: 0.00, network: 0.00}
+                                                                                                                                         $hashvalue_255 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("shop_code_73"), 0))
+                                                                                                                                         LAYOUT: csl.sale_mst
+                                                                                                                                         shop_code_73 := HiveColumnHandle{name=shop_code, hiveType=string, hiveColumnIndex=2, columnType=REGULAR}
+                                                                                                                                         HiveColumnHandle{name=brand_code, hiveType=string, hiveColumnIndex=-1, columnType=PARTITION_KEY}
+                                                                                                                                             :: [[AY, WA]]
+                                                                                                                                         HiveColumnHandle{name=order_date, hiveType=string, hiveColumnIndex=-1, columnType=PARTITION_KEY}
+                                                                                                                                             :: [[20171115]]
