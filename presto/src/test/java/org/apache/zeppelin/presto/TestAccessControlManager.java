@@ -100,8 +100,6 @@ public class TestAccessControlManager {
       }
 
       //assert
-      System.out.println("1>>>>>" + StringUtils.join(plainFile.columnsInPlan, ","));
-      System.out.println("2>>>>>" + StringUtils.join(columnsInPlan, ","));
       assertEquals("Different columns", plainFile.columnsInPlan.size(), columnsInPlan.size());
       for (String eachColumn: plainFile.columnsInPlan) {
         assertTrue("Column not exist in plan", columnsInPlan.remove(eachColumn));

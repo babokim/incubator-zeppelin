@@ -14,8 +14,8 @@
  */
 package org.apache.zeppelin.presto;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Presto AccessControl Manager.
  */
 public class AccessControlManager {
-  public static final Log LOG = LogFactory.getLog(AccessControlManager.class);
+  private Logger LOG = LoggerFactory.getLogger(PrestoInterpreter.class);
   private static AccessControlManager instance;
   private Map<String, Map<String, Set<Operation>>> grantedOperations =
       new HashMap<String,  Map<String, Set<Operation>>>();

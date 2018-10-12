@@ -19,34 +19,33 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.facebook.presto.client.*;
-import io.airlift.http.client.*;
-import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.commons.lang.StringUtils;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.presto.AccessControlManager.AclResult;
 import org.apache.zeppelin.user.AuthenticationInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.client.OkHttpUtil.*;
+import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Presto interpreter for Zeppelin.
  */
 public class PrestoInterpreter extends Interpreter {
-  Logger logger = LoggerFactory.getLogger(PrestoInterpreter.class);
+  private Logger logger = LoggerFactory.getLogger(PrestoInterpreter.class);
 
   static final String PRESTOSERVER_URL = "presto.url";
   static final String PRESTOSERVER_CATALOG = "presto.catalog";
@@ -81,13 +80,13 @@ public class PrestoInterpreter extends Interpreter {
                 "Presto ACL property file path(default is conf/presto-acl.properties)").build());
   }
 
-  private int maxRowsinNotebook = 1000;
-  private int maxLimitRow = 100000;
-  private String resultDataDir;
+  int maxRowsinNotebook = 1000;
+  int maxLimitRow = 100000;
+  String resultDataDir;
   private long expireResult;
 
   private JsonCodec<QueryResults> queryResultsCodec;
-  private HttpClient httpClient;
+  private OkHttpClient httpClient;
   private Map<String, ClientSession> prestoSessions = new HashMap<String, ClientSession>();
   private Exception exceptionOnConnect;
   private URI prestoServer;
@@ -101,10 +100,8 @@ public class PrestoInterpreter extends Interpreter {
   }
 
   class ParagraphTask {
-    StatementClient planStatement;
-    StatementClient sqlStatement;
-    QueryResults sqlQueryResult;
-    QueryResults planQueryResult;
+    PrestoQuery planQuery;
+    PrestoQuery sqlQuery;
 
     AtomicBoolean reportProgress = new AtomicBoolean(false);
     AtomicBoolean queryCanceled = new AtomicBoolean(false);
@@ -114,39 +111,31 @@ public class PrestoInterpreter extends Interpreter {
       this.timestamp = System.currentTimeMillis();
     }
 
-    public void setQueryResult(boolean planQuery, QueryResults queryResults) {
-      if (planQuery) {
-        planQueryResult = queryResults;
-      } else {
-        sqlQueryResult = queryResults;
-      }
-    }
-
     public synchronized void close() {
       reportProgress.set(false);
       queryCanceled.set(true);
-      if (planStatement != null) {
+      if (planQuery != null) {
         try {
-          planStatement.close();
+          planQuery.close();
         } catch (Exception e) {
         }
       }
-      planStatement = null;
+      planQuery = null;
 
-      if (sqlStatement != null) {
+      if (sqlQuery != null) {
         try {
-          sqlStatement.close();
+          sqlQuery.close();
         } catch (Exception e) {
         }
       }
-      sqlStatement = null;
+      sqlQuery = null;
     }
 
-    public String getQueryResultId() {
-      if (sqlQueryResult != null) {
-        return sqlQueryResult.getId();
-      } else if (planQueryResult != null) {
-        return planQueryResult.getId();
+    public URI getQueryResultId() {
+      if (sqlQuery != null) {
+        return sqlQuery.client.currentStatusInfo().getPartialCancelUri();
+      } else if (planQuery != null) {
+        return planQuery.client.currentStatusInfo().getPartialCancelUri();
       } else {
         return null;
       }
@@ -166,7 +155,7 @@ public class PrestoInterpreter extends Interpreter {
         }
         long currentTime = System.currentTimeMillis();
 
-        List<String> expiredParagraphIds = new ArrayList<String>();
+        List<String> expiredParagraphIds = new ArrayList<>();
         synchronized (paragraphTasks) {
           for (Map.Entry<String, ParagraphTask> entry : paragraphTasks.entrySet()) {
             ParagraphTask task = entry.getValue();
@@ -261,10 +250,11 @@ public class PrestoInterpreter extends Interpreter {
       }
 
       prestoServer =  new URI(getProperty(PRESTOSERVER_URL));
-      queryResultsCodec = jsonCodec(QueryResults.class);
-      HttpClientConfig httpClientConfig = new HttpClientConfig();
-      httpClientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
-      httpClient = new JettyHttpClient(httpClientConfig);
+
+      OkHttpClient.Builder builder = new OkHttpClient.Builder();
+      setupTimeouts(builder, 10, SECONDS);
+      setupCookieJar(builder);
+      this.httpClient = builder.build();
 
       cleanThread = new CleanResultFileThread();
       cleanThread.start();
@@ -283,14 +273,18 @@ public class PrestoInterpreter extends Interpreter {
             prestoServer,
             getProperty(PRESTOSERVER_USER),
             "zeppelin-presto-interpreter",
-            "presto-zeppelin-" + userId,
+            Optional.of("presto-zeppelin-" + userId),
+            new HashSet<String>(),
+            "",
             getProperty(PRESTOSERVER_CATALOG),
             getProperty(PRESTOSERVER_SCHEMA),
+            null,
             TimeZone.getDefault().getID(),
             Locale.getDefault(),
             new HashMap<String, String>(),
-            "",
-            false,
+            new HashMap<String, String>(),
+            new HashMap<String, String>(),
+            null,
             new Duration(10, TimeUnit.SECONDS));
 
         prestoSessions.put(userId, prestoSession);
@@ -302,10 +296,6 @@ public class PrestoInterpreter extends Interpreter {
   @Override
   public void close() {
     try {
-      if (httpClient != null) {
-        httpClient.close();
-      }
-
       cleanThread.interrupt();
     } finally {
       httpClient = null;
@@ -392,7 +382,7 @@ public class PrestoInterpreter extends Interpreter {
                     aclMessage.toString());
           }
         } catch (Exception e) {
-          e.printStackTrace();
+//          e.printStackTrace();
           logger.error(e.getMessage(), e);
           return new InterpreterResult(Code.ERROR,
               "Error while checking authority: " + e.getMessage());
@@ -409,30 +399,9 @@ public class PrestoInterpreter extends Interpreter {
     }
   }
 
-  private static List<Column> getColumns(StatementClient client)
-      throws Exception
-  {
-    while (client.isValid()) {
-      QueryResults results = client.current();
-      List<Column> columns = results.getColumns();
-      if (columns != null) {
-        return columns;
-      }
-      client.advance();
-    }
-
-    QueryResults results = client.finalResults();
-    if (!client.isFailed()) {
-      throw new Exception("Query has no columns " + results.getId());
-    }
-    throw new Exception(results.toString());
-  }
-
-
   private InterpreterResult executeSql(String sql,
                                        InterpreterContext context,
                                        boolean planQuery) {
-    ResultFileMeta resultFileMeta = null;
     ParagraphTask task = getParagraphTask(context);
     try {
       if (sql == null || sql.trim().isEmpty()) {
@@ -446,165 +415,41 @@ public class PrestoInterpreter extends Interpreter {
       if (exceptionOnConnect != null) {
         return new InterpreterResult(Code.ERROR, exceptionOnConnect.getMessage());
       }
-      StatementClient statementClient = new StatementClient(httpClient, queryResultsCodec,
-          getClientSession(context.getAuthenticationInfo().getUser()), sql);
 
-      if (statementClient.isFailed()) {
-        throw new Exception(statementClient.finalResults().toString());
+      OkHttpClient.Builder builder = httpClient.newBuilder();
+      OkHttpClient client = builder.build();
+
+      StatementClient statementClient = newStatementClient(client, getClientSession(context.getAuthenticationInfo().getUser()), sql);
+      PrestoQuery query = new PrestoQuery(this, context, statementClient, sql);
+      query.processQuery();
+      String errorMessage = query.getErrorMessage();
+      if (!errorMessage.isEmpty()) {
+        InterpreterResult result = new InterpreterResult(Code.ERROR);
+        result.add(errorMessage);
+        return result;
       }
 
       if (planQuery) {
-        task.planStatement = statementClient;
+        task.planQuery = query;
       } else {
-        task.sqlStatement = statementClient;
-      }
-      StringBuilder msg = new StringBuilder();
-
-      boolean alreadyPutColumnName = false;
-      boolean isSelectSql = sql.trim().toLowerCase().startsWith("select");
-      boolean isExplainSql = sql.trim().toLowerCase().startsWith("explain");
-      AtomicInteger receivedRows = new AtomicInteger(0);
-
-      String resultFilePath =
-          resultDataDir + "/" + context.getNoteId() + "_" + context.getParagraphId();
-      File resultFile = new File(resultFilePath);
-      if (resultFile.exists()) {
-        resultFile.delete();
-      }
-
-      while (statementClient.isValid()) {
-        if (Thread.currentThread().isInterrupted()) {
-          statementClient.close();
-          return new InterpreterResult(Code.ERROR, "Query canceled.");
-        }
-        QueryResults queryResults = statementClient.current();
-        task.setQueryResult(planQuery, queryResults);
-
-        if (!task.reportProgress.get() && !planQuery) {
-          task.reportProgress.set(true);
-        }
-        Iterable<List<Object>> data  = queryResults.getData();
-        statementClient.advance();
-        if (data == null) {
-          continue;
-        }
-        if (!alreadyPutColumnName) {
-          List<Column> columns = queryResults.getColumns();
-          String prefix = "";
-          for (Column eachColumn: columns) {
-            msg.append(prefix).append(eachColumn.getName());
-            if (prefix.isEmpty()) {
-              prefix = "\t";
-            }
-          }
-          msg.append("\n");
-          alreadyPutColumnName = true;
-        }
-
-        resultFileMeta = processData(context, data, receivedRows,
-            isSelectSql, isExplainSql, msg, resultFileMeta);
-      }  //end of while
-
-      QueryResults queryResults = statementClient.finalResults();
-      if (queryResults.getError() != null) {
-        return new InterpreterResult(Code.ERROR, queryResults.getError().getMessage());
-      }
-      task.setQueryResult(planQuery, queryResults);
-
-      if (resultFileMeta != null) {
-        resultFileMeta.outStream.close();
+        task.sqlQuery = query;
       }
 
       InterpreterResult result = new InterpreterResult(Code.SUCCESS);
-
-      String resultMessage = msg.toString();
-      result.add(isExplainSql ? resultMessage : "%table " + resultMessage);
+      result.add(query.getQueryResult());
       return result;
     } catch (Exception ex) {
-      ex.printStackTrace();
       logger.error("Can not run " + sql, ex);
-      if (ex.getMessage() != null && ex.getMessage().indexOf("QueryResults") >= 0 ) {
-        String errorMessage = ex.getMessage();
-        int index = errorMessage.indexOf("error=QueryError{message=");
-        if (index > 0) {
-          String realMessage = errorMessage.substring(index + "error=QueryError{message=".length(), errorMessage.indexOf(", sqlState="));
-          return new InterpreterResult(Code.ERROR, realMessage);
-        }
-      }
+//      if (ex.getMessage() != null && ex.getMessage().indexOf("QueryResults") >= 0 ) {
+//        String errorMessage = ex.getMessage();
+//        int index = errorMessage.indexOf("error=QueryError{message=");
+//        if (index > 0) {
+//          String realMessage = errorMessage.substring(index + "error=QueryError{message=".length(), errorMessage.indexOf(", sqlState="));
+//          return new InterpreterResult(Code.ERROR, realMessage);
+//        }
+//      }
       return new InterpreterResult(Code.ERROR, ex.getMessage());
-    } finally {
-      if (resultFileMeta != null && resultFileMeta.outStream != null) {
-        try {
-          resultFileMeta.outStream.close();
-        } catch (IOException e) {
-        }
-      }
     }
-  }
-
-  private String resultToCsv(String resultMessage) {
-    StringBuilder sb = new StringBuilder();
-    String[] lines = resultMessage.split("\n");
-
-    for (String eachLine: lines) {
-      String[] tokens = eachLine.split("\t");
-      String prefix = "";
-      for (String eachToken: tokens) {
-        sb.append(prefix).append("\"").append(eachToken.replace("\"", "'")).append("\"");
-        prefix = ",";
-      }
-      sb.append("\n");
-    }
-
-    return sb.toString();
-  }
-
-  private ResultFileMeta processData(
-      InterpreterContext context,
-      Iterable<List<Object>> data,
-      AtomicInteger receivedRows,
-      boolean isSelectSql,
-      boolean isExplainSql,
-      StringBuilder msg,
-      ResultFileMeta resultFileMeta) throws IOException {
-    for (List<Object> row : data) {
-      receivedRows.incrementAndGet();
-      if (receivedRows.get() > maxRowsinNotebook && isSelectSql && resultFileMeta == null) {
-        resultFileMeta = new ResultFileMeta();
-        resultFileMeta.filePath =
-            resultDataDir + "/" + context.getNoteId() + "_" + context.getParagraphId();
-
-        resultFileMeta.outStream = new FileOutputStream(resultFileMeta.filePath);
-        resultFileMeta.outStream.write(0xEF);
-        resultFileMeta.outStream.write(0xBB);
-        resultFileMeta.outStream.write(0xBF);
-        resultFileMeta.outStream.write(resultToCsv(msg.toString()).getBytes("UTF-8"));
-      }
-      String delimiter = "";
-      String csvDelimiter = "";
-      for (Object col : row) {
-        String colStr =
-            (col == null ? "null" :
-                col.toString().replace('\n', ' ').replace('\r', ' ')
-                    .replace('\t', ' ').replace('\"', '\''));
-        if (receivedRows.get() > maxRowsinNotebook) {
-          resultFileMeta.outStream.write((csvDelimiter + "\"" + colStr + "\"").getBytes("UTF-8"));
-        } else {
-          msg.append(delimiter).append(isExplainSql ? col.toString() : colStr);
-        }
-
-        if (delimiter.isEmpty()) {
-          delimiter = "\t";
-          csvDelimiter = ",";
-        }
-      }
-      if (receivedRows.get() > maxRowsinNotebook) {
-        resultFileMeta.outStream.write(("\n").getBytes());
-      } else {
-        msg.append("\n");
-      }
-    }
-    return resultFileMeta;
   }
 
   private InterpreterResult assertLimitClause(String sql) {
@@ -647,22 +492,34 @@ public class PrestoInterpreter extends Interpreter {
   public void cancel(InterpreterContext context) {
     ParagraphTask task = getParagraphTask(context);
     try {
-      if (task.planStatement == null && task.sqlStatement == null) {
+      if (task.planQuery == null && task.sqlQuery == null) {
         return;
       }
 
       logger.info("Kill query '" + task.getQueryResultId() + "'");
 
-      ResponseHandler handler = StringResponseHandler.createStringResponseHandler();
-      Request request = prepareDelete().setUri(
-          uriBuilderFrom(prestoServer).replacePath("/v1/query/" +
-              task.getQueryResultId()).build()).build();
+      OkHttpClient.Builder builder = httpClient.newBuilder();
+      OkHttpClient client = builder.build();
+
       try {
-        httpClient.execute(request, handler);
-        task.close();
+        Request request = new Request.Builder()
+            .url(task.getQueryResultId().toURL())
+            .build();
+
+        client.newCall(request);
       } catch (Exception e) {
         logger.error("Can not kill query " + task.getQueryResultId(), e);
       }
+//      ResponseHandler handler = StringResponseHandler.createStringResponseHandler();
+//      Request request = prepareDelete().setUri(
+//          uriBuilderFrom(prestoServer).replacePath("/v1/query/" +
+//              task.getQueryResultId()).build()).build();
+//      try {
+//        httpClient.execute(request, handler);
+//        task.close();
+//      } catch (Exception e) {
+//        logger.error("Can not kill query " + task.getQueryResultId(), e);
+//      }
     } finally {
       removeParagraph(context);
     }
@@ -676,10 +533,10 @@ public class PrestoInterpreter extends Interpreter {
   @Override
   public int getProgress(InterpreterContext context) {
     ParagraphTask task = getParagraphTask(context);
-    if (!task.reportProgress.get() || task.sqlQueryResult == null) {
+    if (!task.reportProgress.get() || task.sqlQuery == null) {
       return 0;
     }
-    StatementStats stats = task.sqlQueryResult.getStats();
+    StatementStats stats = task.sqlQuery.client.getStats();
     if (stats.getTotalSplits() == 0) {
       return 0;
     } else {
@@ -706,13 +563,13 @@ public class PrestoInterpreter extends Interpreter {
 
   public static void main(String[] args) throws Exception {
     Properties property = new Properties();
-    property.setProperty(PRESTOSERVER_URL, "http://localhost:18082");
+    property.setProperty(PRESTOSERVER_URL, "http://122.112.235.109:18082");
     property.setProperty(PRESTOSERVER_CATALOG, "hive");
     property.setProperty(PRESTOSERVER_SCHEMA, "default");
     property.setProperty(PRESTOSERVER_USER, "hadoop");
     property.setProperty(PRESTOSERVER_PASSWORD, "1234");
     property.setProperty(PRESTO_MAX_RESULT_ROW, "100");
-    property.setProperty(PRESTO_MAX_ROW, "1000");
+    property.setProperty(PRESTO_MAX_ROW, "100000");
     property.setProperty(PRESTO_ACL_ENABLE, "true");
     property.setProperty(PRESTO_ACL_PROPERTY,
         "/Users/babokim/work/workspace/zeppelin/conf/presto-acl.properties");
@@ -733,7 +590,7 @@ public class PrestoInterpreter extends Interpreter {
         "replName",
         "paragraphTitle",
         "paragraphText",
-        new AuthenticationInfo("user2", null, userAndRoles),
+        new AuthenticationInfo("admin", null, userAndRoles),
         null, //Map<String, Object> config,
         null, //GUI gui,
         null, //AngularObjectRegistry angularObjectRegistry,
@@ -742,16 +599,19 @@ public class PrestoInterpreter extends Interpreter {
         null  //InterpreterOutput out
     );
 
-    InterpreterResult result = presto.checkAclAndExecuteSql(sql, context);
-    if (result.code() == Code.ERROR) {
-      System.out.println("ACL error: " + result.message());
-      return;
-    }
-//    InterpreterResult result = presto.executeSql(sql, context, true);
+    try {
+      InterpreterResult result = presto.checkAclAndExecuteSql(sql, context);
+      if (result.code() == Code.ERROR) {
+        System.out.println("ACL error: " + result.message());
+        return;
+      }
+      //    InterpreterResult result = presto.executeSql(sql, context, true);
 
-    System.out.println("====Result====");
-    System.out.println(result.message());
-    System.out.println("==============");
-    presto.close();
+      System.out.println("====Result====");
+      System.out.println(result.message());
+      System.out.println("==============");
+    } finally {
+      presto.close();
+    }
   }
 }
