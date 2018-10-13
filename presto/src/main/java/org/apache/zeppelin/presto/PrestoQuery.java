@@ -35,7 +35,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoQuery implements Closeable {
-  private Logger logger = LoggerFactory.getLogger(PrestoInterpreter.class);
+  private Logger logger = LoggerFactory.getLogger(PrestoQuery.class);
 
   final StatementClient client;
   private StringBuilder queryResult = new StringBuilder();

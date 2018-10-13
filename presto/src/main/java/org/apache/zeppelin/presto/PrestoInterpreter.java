@@ -421,6 +421,14 @@ public class PrestoInterpreter extends Interpreter {
 
       StatementClient statementClient = newStatementClient(client, getClientSession(context.getAuthenticationInfo().getUser()), sql);
       PrestoQuery query = new PrestoQuery(this, context, statementClient, sql);
+
+      if (planQuery) {
+        task.planQuery = query;
+      } else {
+        task.sqlQuery = query;
+        task.reportProgress.set(true);
+      }
+
       query.processQuery();
       String errorMessage = query.getErrorMessage();
       if (!errorMessage.isEmpty()) {
@@ -429,25 +437,11 @@ public class PrestoInterpreter extends Interpreter {
         return result;
       }
 
-      if (planQuery) {
-        task.planQuery = query;
-      } else {
-        task.sqlQuery = query;
-      }
-
       InterpreterResult result = new InterpreterResult(Code.SUCCESS);
       result.add(query.getQueryResult());
       return result;
     } catch (Exception ex) {
       logger.error("Can not run " + sql, ex);
-//      if (ex.getMessage() != null && ex.getMessage().indexOf("QueryResults") >= 0 ) {
-//        String errorMessage = ex.getMessage();
-//        int index = errorMessage.indexOf("error=QueryError{message=");
-//        if (index > 0) {
-//          String realMessage = errorMessage.substring(index + "error=QueryError{message=".length(), errorMessage.indexOf(", sqlState="));
-//          return new InterpreterResult(Code.ERROR, realMessage);
-//        }
-//      }
       return new InterpreterResult(Code.ERROR, ex.getMessage());
     }
   }
@@ -510,16 +504,6 @@ public class PrestoInterpreter extends Interpreter {
       } catch (Exception e) {
         logger.error("Can not kill query " + task.getQueryResultId(), e);
       }
-//      ResponseHandler handler = StringResponseHandler.createStringResponseHandler();
-//      Request request = prepareDelete().setUri(
-//          uriBuilderFrom(prestoServer).replacePath("/v1/query/" +
-//              task.getQueryResultId()).build()).build();
-//      try {
-//        httpClient.execute(request, handler);
-//        task.close();
-//      } catch (Exception e) {
-//        logger.error("Can not kill query " + task.getQueryResultId(), e);
-//      }
     } finally {
       removeParagraph(context);
     }
@@ -536,12 +520,12 @@ public class PrestoInterpreter extends Interpreter {
     if (!task.reportProgress.get() || task.sqlQuery == null) {
       return 0;
     }
-    StatementStats stats = task.sqlQuery.client.getStats();
-    if (stats.getTotalSplits() == 0) {
-      return 0;
+    QueryStatusInfo stats = task.sqlQuery.client.currentStatusInfo();
+    OptionalDouble progress = stats.getStats().getProgressPercentage();
+    if (progress.isPresent()) {
+      return (int)progress.getAsDouble();
     } else {
-      double p = (double) stats.getCompletedSplits() / (double) stats.getTotalSplits();
-      return (int) (p * 100.0);
+      return 0;
     }
   }
 
