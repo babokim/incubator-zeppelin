@@ -366,20 +366,25 @@ public class AccessControlManager {
   }
 
   public String getSchemaFromTableCommitPlan(String currentLine) {
-    int startPos = currentLine.indexOf("}:");
+//    int startPos = currentLine.indexOf("}:");
+    int startPos = currentLine.indexOf("[");
     if (startPos <= 0) {
       return null;
     }
-    currentLine = currentLine.substring(startPos + 2);
+//    currentLine = currentLine.substring(startPos + 2);
+    currentLine = currentLine.substring(startPos + 1);
     currentLine = currentLine.substring(0, currentLine.indexOf("]"));
 
     String[] tokens = currentLine.split(":");
+    if (tokens.length < 3) {
+      return null;
+    }
     String catalog = tokens[0];
 
-    String[] schemaTableTokens = tokens[1].split("\\.");
+    String[] schemaTableTokens = tokens[2].split("\\.");
     String schema = schemaTableTokens[0];
 
-    //LOG.debug("Parsed: " + catalog + "." + schema);
+//    LOG.debug("Parsed: " + catalog + "." + schema);
     return catalog + "." + schema;
   }
 
